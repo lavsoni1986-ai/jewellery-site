@@ -14,10 +14,18 @@ export default function InstallButton() {
     return () => window.removeEventListener("beforeinstallprompt", handleInstallPrompt);
   }, []);
 
-  const installApp = () => {
-    if (prompt) {
-      (prompt as Event & { prompt: () => void }).prompt();
+  const installApp = async () => {
+    if (!prompt) return;
+
+    (prompt as Event & { prompt: () => void }).prompt();
+
+    const choiceResult = await (prompt as Event & { userChoice: Promise<{ outcome: string }> }).userChoice;
+
+    if (choiceResult.outcome === "accepted") {
+      console.log("User accepted install");
     }
+
+    setPrompt(null);
   };
 
   if (!prompt) return null;
@@ -25,7 +33,7 @@ export default function InstallButton() {
   return (
     <button
       onClick={installApp}
-      className="fixed bottom-20 left-4 bg-[#D4AF37] text-black px-4 py-2 rounded shadow-lg hover:bg-[#B8952A] transition"
+      className="fixed bottom-6 left-6 bg-gold text-black px-4 py-2 rounded-full shadow-lg hover:scale-105 transition"
     >
       📲 Install App
     </button>

@@ -1,6 +1,6 @@
 "use client";
 
-export const dynamic = "force-dynamic";
+
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
@@ -8,302 +8,402 @@ import Link from "next/link";
 import { getDoc, doc, collection, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { PHONE } from "@/lib/config";
-import {
-Heart,
-Menu,
-X,
-} from "lucide-react";
+import { Heart, Menu, X, CheckCircle } from "lucide-react";
 
+// --- Types ---
 interface Product {
   id: string;
   name: string;
   weight: number;
   making: number;
   image: string;
-  stock?: number;
   category?: string;
+  stock?: number;
 }
 
-
+const categories = [
+  {
+    name: "Rings",
+    image: "https://images.unsplash.com/photo-1605100804763-247f67b3557e",
+  },
+  {
+    name: "Necklace",
+    image: "https://images.unsplash.com/photo-1611652022419-a9419f74343d",
+  },
+  {
+    name: "Bangles",
+    image: "https://images.unsplash.com/photo-1626784215021-2e39ccf971cd",
+  },
+  {
+    name: "Earrings",
+    image: "https://images.unsplash.com/photo-1611652022419-a9419f74343d?q=80&w=800",
+  },
+];
 
 export default function Home() {
-
-const [goldRate, setGoldRate] = useState<number>(0);
-
-const [products, setProducts] = useState<Product[]>([]);
+  const [goldRate, setGoldRate] = useState<number>(0);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    const fetchGoldRate = async () => {
-      const goldRateDoc = await getDoc(doc(db, "goldRate", "current"));
-      if (goldRateDoc.exists()) {
-        setGoldRate(goldRateDoc.data().rate);
-      }
-    };
-
-    fetchGoldRate();
-
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
+        const rateDoc = await getDoc(doc(db, "goldRate", "current"));
+        if (rateDoc.exists()) setGoldRate(rateDoc.data().rate);
+
         const snapshot = await getDocs(collection(db, "products"));
-        const data = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Product[];
-        setProducts(data);
-        console.log('Fetched products:', data);
+        setProducts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Product[]);
       } catch (error) {
-        console.error('Error fetching products:', error);
+        console.error("Architect Error:", error);
       }
     };
-
-    fetchProducts();
+    fetchData();
   }, []);
 
-const Navbar = ({ goldRate }: { goldRate: number }) => {
-const [isMenuOpen, setIsMenuOpen] = useState(false);
-const [scrolled, setScrolled] = useState(false);
-
-useEffect(() => {
-const handleScroll = () => setScrolled(window.scrollY > 80);
-window.addEventListener("scroll", handleScroll);
-return () => window.removeEventListener("scroll", handleScroll);
-}, []);
-
-return (
-<>
-<div className={`transition-all duration-500 ${
-  scrolled ? "opacity-0 -translate-y-full" : "opacity-100 translate-y-0"
-}`}>
-  {/* GOLD RATE BAR */}
-  <div className="bg-black/90 backdrop-blur-md text-[#D4AF37] text-[11px] py-[3px] px-4 flex justify-between">
-      <span>Gold Rate Today: ₹{goldRate ? goldRate : "..."} / gram</span>
-     <span>📞 {PHONE}</span>
-  </div>
-
-  {/* OFFER BAR */}
-    <div className="bg-[#D4AF37] text-black text-center text-xs py-[4px] font-medium tracking-wide">
-      ✨ आज का ऑफर: मेकेन चार्जेस में डिस्काउंट | अभी कॉल करें
-    </div>
-</div>
-<nav
- className={`fixed top-0 w-full z-50 transition-all duration-500 ${
-        scrolled
-          ? "bg-black/95 backdrop-blur-md py-1 shadow-lg border-b border-[#D4AF37]/20"
-          : "bg-transparent py-1"
-      }`}
->
-  <div className="container mx-auto px-4 flex justify-between items-center">
-    <div className="hidden md:flex gap-6 text-sm text-gray-300">
-      <Link href="/" className="hover:text-[#f5d06f] transition-colors duration-300 relative after:content-[''] after:absolute after:w-0 after:h-0.5 after:bg-[#D4AF37] after:left-0 after:-bottom-1 after:transition-all after:duration-300 hover:after:w-full">Home</Link>
-      <Link href="/jewellery" className="hover:text-[#f5d06f] transition-colors duration-300 relative after:content-[''] after:absolute after:w-0 after:h-0.5 after:bg-[#D4AF37] after:left-0 after:-bottom-1 after:transition-all after:duration-300 hover:after:w-full">Jewellery</Link>
-    </div>
-
-    <h1 className="text-xl md:text-2xl text-[#D4AF37] font-serif tracking-wide">
-      Anshu Jewellers | Since 1950s
-    </h1>
-
-    <div className="flex gap-4 text-[#D4AF37]">
-      <Heart size={18} />
-      <button onClick={() => setIsMenuOpen(!isMenuOpen)}>
-        {isMenuOpen ? <X /> : <Menu />}
-      </button>
-    </div>
-  </div>
-
-  {isMenuOpen && (
-    <div className="fixed inset-0 bg-black flex flex-col items-center justify-center gap-6 text-white">
-      <Link href="/">Home</Link>
-      <Link href="/jewellery">Jewellery</Link>
-      <Link href="/contact">Contact</Link>
-    </div>
-  )}
-</nav>
-</>
-
-);
-};
-
-const CategoryCard = ({ title, img }: { title: string; img: string }) => (
-  <div className="relative h-[180px] md:h-[220px] w-full overflow-hidden rounded-xl cursor-pointer group transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(212,175,55,0.3)]">
-    <Image
-      src={img}
-      alt={title}
-      fill
-      sizes="(max-width: 768px) 100vw, 33vw"
-      className="object-cover"
-    />
-    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-    <div className="absolute bottom-0 w-full bg-black/60 py-3 text-center group-hover:bg-black/80 transition-colors duration-300">
-      <p className="text-[#f5d06f] font-semibold text-lg">{title}</p>
-    </div>
-  </div>
-);
-
-return ( <div className="bg-black text-white pt-[60px]"> <Navbar goldRate={goldRate} />
-
-  {/* HERO */}
-  <section className="h-screen flex items-center justify-center relative overflow-hidden">
-    <Image
-      src="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f"
-      alt="hero"
-      fill
-      priority
-      sizes="100vw"
-      className="object-cover"
-    />
-    <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/50 to-black/70"></div>
-    <div className="relative text-center z-10 animate-fade-in">
-      <h2 className="text-5xl text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
-        70 साल का भरोसा – अब ऑनलाइन भी 💎
-      </h2>
-      <p className="text-gray-300 mt-3">
-        Trusted Jewellery Shop in Burhar Since 1950s
-      </p>
-      <div className="flex gap-4 mt-4 text-xs text-gray-300 justify-center">
-        <span>✔ BIS Hallmarked</span>
-        <span>✔ 100% Certified Gold</span>
-      </div>
-      <div className="flex gap-6 justify-center mt-8">
-        <Link href="/jewellery">
-          <button className="btn-gold px-8 py-3 text-lg font-semibold rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(212,175,55,0.5)]">
-            अभी देखें
-          </button>
-        </Link>
-        <a
-          href="https://wa.me/919425182098"
-          className="btn-whatsapp px-8 py-3 text-lg font-semibold rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(37,211,102,0.5)]"
-        >
-          WhatsApp पर पूछें 💬
-        </a>
-      </div>
-    </div>
-  </section>
-
-  {/* CATEGORY */}
-  <section className="py-16 px-6">
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <Link href="/jewellery?category=ring">
-      <CategoryCard
-        title="Rings"
-        img="https://images.unsplash.com/photo-1605100804763-247f67b3557e"
-      />
-    </Link>
-    <Link href="/jewellery?category=necklace">
-      <CategoryCard
-        title="Necklace"
-        img="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f"
-      />
-    </Link>
-    <Link href="/jewellery?category=bangles">
-      <CategoryCard
-        title="Bangles"
-        img="https://images.unsplash.com/photo-1611591437281-460bfbe1220a"
-      />
-    </Link>
-    <Link href="/jewellery?category=earrings">
-      <CategoryCard
-        title="Earrings"
-        img="https://images.unsplash.com/photo-1535632066927-ab7c9ab60908"
-      />
-    </Link>
-    </div>
-  </section>
-
-
-
-  {/* FEATURED PRODUCTS */}
-  {(() => { console.log('Products:', products); return true; })() && (
-    <section className="py-16">
-      <div className="container mx-auto px-6">
-        <h2 className="text-3xl text-[#D4AF37] text-center mb-8">हमारे लेटेस्ट डिजाइन</h2>
-        <div className={`grid gap-6 ${products.slice(0, 4).length === 1 ? 'grid-cols-1 justify-center' : 'grid-cols-2 md:grid-cols-4'}`}>
-        {products.slice(0, 4).map(product => {
-          const price = Math.round((product.weight * goldRate) + product.making);
-          return (
-            <div key={product.id} className="bg-black border border-[#D4AF37] rounded-lg overflow-hidden hover:shadow-2xl transition duration-300 hover:scale-105">
-              <div className="relative w-full h-[200px]">
-                <Image
-                  src={product.image}
-                  alt={product.name}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 25vw"
-                  className="object-cover"
-                />
-              </div>
-              <div className="p-4 text-center">
-                <h3 className="text-white font-semibold">{product.name}</h3>
-                <p className="text-[#D4AF37] text-lg font-bold">₹{price}</p>
-                <p className="text-green-400 text-sm">✔ BIS Hallmarked</p>
-                <a
-                  href={`https://wa.me/${PHONE}?text=मैं ${product.name} में इंटरेस्टेड हूँ (₹${price}) GSTIN: 23DKHPS2997L1ZD`}
-                  target="_blank"
-                  className="block mt-3 bg-[#25D366] hover:bg-[#128C7E] text-white py-2 rounded transition"
-                >
-                  WhatsApp पर पूछें 💬
-                </a>
-                <Link href="/jewellery?category=ring" className="block mt-2 border border-[#D4AF37] text-[#D4AF37] py-2 rounded hover:bg-[#D4AF37] hover:text-black transition">
-                  डिटेल्स देखें
-                </Link>
-              </div>
-            </div>
-          );
-        })}
+  return (
+    <div className="bg-gradient-to-b from-[#fff5f5] via-[#fce4e4] to-[#f8f1f1] text-[#1a1a1a] selection:bg-rosewood selection:text-white min-h-screen noise-bg pb-28 md:pb-16">
+      {/* 1. TOP BARS */}
+      <div className="fixed top-0 w-full z-[60]">
+        <div className="bg-gradient-to-r from-[#d4af37] via-[#f5d06f] to-[#d4af37] text-black py-2 text-center text-xs font-bold tracking-[0.2em] uppercase shadow-depth">
+          Gold Rate: ₹{goldRate ? goldRate.toLocaleString("en-IN") : "..."} / gram • Limited Offers Inside
         </div>
       </div>
-    </section>
-  )}
 
-  {/* TRUST SECTION */}
-  <section className="text-center py-10 bg-black border-t border-gray-800">
-    <h3 className="text-2xl text-[#D4AF37] mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
-      Why Choose Us ✨
-    </h3>
+      {/* 2. NAVIGATION (Refined Glassmorphism) */}
+      <nav className="fixed top-10 w-full z-50 glass-nav">
+        <div className="container mx-auto px-6 h-16 flex justify-between items-center">
+          <nav className="hidden md:flex gap-8 text-sm font-medium text-[#65000b] tracking-wide" role="navigation">
+            <Link href="/" className="hover:text-gold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 rounded px-2 py-1">Home</Link>
+            <Link href="/jewellery" className="hover:text-gold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 rounded px-2 py-1">Collection</Link>
+          </nav>
+          
+          <h1 className="text-xl md:text-2xl font-serif tracking-[0.15em] text-[#65000b]">
+            ANSHU JEWELLERS <span className="text-[10px] block text-center opacity-70 font-sans tracking-wider">SINCE 1950</span>
+          </h1>
 
-    <div className="flex flex-col md:flex-row justify-center gap-8 text-gray-300">
-      <div className="flex items-center gap-2 animate-fade-in" style={{animationDelay: '0.2s'}}>⭐ 70+ Saal ka Bharosa</div>
-      <div className="flex items-center gap-2 animate-fade-in" style={{animationDelay: '0.4s'}}>💎 BIS Hallmarked Jewellery</div>
-      <div className="flex items-center gap-2 animate-fade-in" style={{animationDelay: '0.6s'}}>⚖️ Best Making Charges</div>
-      <div className="flex items-center gap-2 animate-fade-in" style={{animationDelay: '0.8s'}}>🏪 Trusted Local Store</div>
+          <div className="flex items-center gap-4">
+            <button
+              className="text-[#65000b] cursor-pointer hover:text-gold transition-all duration-300 hover:scale-110 p-2 rounded-lg hover:bg-white/10"
+              aria-label="Favorites"
+            >
+              <Heart size={20} />
+            </button>
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden text-[#65000b] hover:text-gold transition p-2 rounded-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
+              aria-label="Toggle menu"
+              aria-expanded={isMenuOpen}
+            >
+              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* MOBILE MENU DRAWER */}
+      {isMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)}>
+          <div
+            className="fixed right-0 top-0 h-full w-80 bg-white/95 backdrop-blur-xl shadow-depth-xl transform transition-transform duration-300 ease-out"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 pt-20">
+              <button
+                onClick={() => setIsMenuOpen(false)}
+                className="absolute top-4 right-4 text-[#65000b] hover:text-gold transition p-2"
+                aria-label="Close menu"
+              >
+                <X size={24} />
+              </button>
+
+              <div className="space-y-6">
+                <h2 className="text-2xl font-serif text-[#65000b] tracking-wide">Menu</h2>
+
+                <div className="space-y-4">
+                  <Link
+                    href="/"
+                    className="block py-3 px-4 text-[#65000b] font-medium tracking-wide hover:bg-[#65000b]/10 rounded-lg transition-all duration-200"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Home
+                  </Link>
+                  <Link
+                    href="/jewellery"
+                    className="block py-3 px-4 text-[#65000b] font-medium tracking-wide hover:bg-[#65000b]/10 rounded-lg transition-all duration-200"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Collection
+                  </Link>
+                  <Link
+                    href="/contact"
+                    className="block py-3 px-4 text-[#65000b] font-medium tracking-wide hover:bg-[#65000b]/10 rounded-lg transition-all duration-200"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Contact
+                  </Link>
+                </div>
+
+                <div className="border-t border-gray-200 pt-6 mt-6">
+                  <a
+                    href={`https://wa.me/${PHONE}`}
+                    className="w-full block btn-primary text-white py-4 px-6 rounded-xl font-bold text-center hover:scale-105 active:scale-95"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    WhatsApp पर पूछें 💬
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. HERO SECTION (EPIC CINEMATIC) */}
+      <section className="relative h-screen flex items-center justify-center text-center px-6 pt-32 md:pt-40 overflow-hidden spotlight">
+        {/* Background Image with Zoom Animation */}
+        <div className="absolute inset-0 overflow-hidden">
+          <Image
+            src="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f"
+            alt="Luxury Jewellery"
+            fill
+            priority
+            loading="eager"
+            sizes="100vw"
+            className="object-cover opacity-60 animate-hero-zoom"
+          />
+        </div>
+        
+        {/* Multi-Layer Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#3b0a0a] via-[#3b0a0a]/80 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#65000b]/50 via-transparent to-[#3b0a0a]/50" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#3b0a0a]/30 via-transparent to-transparent" />
+        
+        {/* Content with Staggered Animations */}
+        <div className="relative z-10 max-w-4xl">
+          <p className="text-gold tracking-[0.4em] text-xs md:text-sm mb-6 font-bold uppercase animate-fade-in-up">
+            Established 1950
+          </p>
+          <h2 className="text-5xl md:text-7xl lg:text-8xl font-serif mb-4 leading-tight text-white text-glow-hero animate-fade-in-up animate-delay-100">
+            70 साल का भरोसा
+          </h2>
+          <p className="text-2xl md:text-4xl font-serif italic text-[#f8f1f1] mb-6 animate-fade-in-up animate-delay-200">
+            अब ऑनलाइन भी
+          </p>
+          <p className="text-white/90 text-lg md:text-xl font-medium mb-12 tracking-wide animate-fade-in-up animate-delay-300">
+            Burhar का Trusted Jewellery Store Since 1950s
+          </p>
+          
+          {/* Buttons with Spacing */}
+          <div className="flex flex-wrap justify-center gap-8 mt-8 animate-fade-in-up animate-delay-300">
+            <Link href="/jewellery" className="bg-white text-[#65000b] px-12 py-5 rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-depth-lg hover:shadow-depth-xl border-2 border-white hover:border-gold active:scale-95">
+              कलेक्शन देखें
+            </Link>
+            <a href={`https://wa.me/${PHONE}`} className="btn-primary text-white px-12 py-5 rounded-full font-bold text-lg hover:scale-105 active:scale-95">
+              WhatsApp पर पूछें 💬
+            </a>
+          </div>
+        </div>
+        
+        {/* Gold Divider */}
+        <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 w-40 gold-divider" />
+      </section>
+
+      {/* 4. TRUST LINE (Enhanced) */}
+      <div className="glass-card py-12 border-y border-white/40 section-animate">
+        <div className="container mx-auto px-6 flex flex-wrap justify-center gap-10 md:gap-20 text-sm md:text-base text-[#65000b] font-medium tracking-wide">
+          <span className="flex items-center gap-3 shadow-depth px-4 py-2 rounded-full hover:shadow-depth-lg transition-all duration-400"><CheckCircle size={18} className="text-gold"/> 70+ साल का भरोसा</span>
+          <span className="flex items-center gap-3 shadow-depth px-4 py-2 rounded-full hover:shadow-depth-lg transition-all duration-400"><CheckCircle size={18} className="text-gold"/> BIS Hallmarked</span>
+          <span className="flex items-center gap-3 shadow-depth px-4 py-2 rounded-full hover:shadow-depth-lg transition-all duration-400"><CheckCircle size={18} className="text-gold"/> 4.8 Google Rating</span>
+        </div>
+      </div>
+
+      {/* 5. CATEGORIES (Visual Cards - Enhanced) */}
+      <section className="py-24 container mx-auto px-6 section-animate">
+        <h3 className="text-4xl md:text-5xl font-serif text-center mb-4 text-[#65000b]">Shop by Category</h3>
+        <div className="gold-divider w-24 mx-auto mb-16" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          {categories.map((cat) => (
+            <Link 
+              key={cat.name} 
+              href={`/jewellery?category=${cat.name.toLowerCase()}`} 
+              className="group relative rounded-3xl overflow-hidden cursor-pointer shadow-depth hover:shadow-depth-lg transition-all duration-500 hover:scale-105 image-zoom"
+            >
+              {/* Image */}
+              <Image
+                src={cat.image}
+                alt={cat.name}
+                width={300}
+                height={200}
+                className="w-full h-48 object-cover"
+              />
+
+              {/* Overlay */}
+              <div className="absolute inset-0 category-overlay group-hover:opacity-90 transition-all duration-500" />
+
+              {/* Text */}
+              <div className="absolute bottom-4 left-4 right-4">
+                <p className="text-white font-serif text-xl md:text-2xl font-semibold tracking-wide drop-shadow-lg">
+                  {cat.name}
+                </p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* 6. LATEST DESIGNS (Premium Cards with Depth) */}
+      <section className="pb-24 container mx-auto px-6 section-animate">
+        <h3 className="text-4xl md:text-5xl font-serif text-center mb-4 text-[#65000b]">लेटेस्ट डिजाइन</h3>
+        <div className="gold-divider w-24 mx-auto mb-16" />
+        {products.length === 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="product-card glass-card rounded-3xl overflow-hidden shadow-depth animate-pulse">
+                <div className="aspect-square bg-gradient-to-br from-gray-200 to-gray-300"></div>
+                <div className="p-6 text-center">
+                  <div className="h-5 bg-gray-200 rounded mb-3 mx-auto w-3/4"></div>
+                  <div className="h-7 bg-gray-300 rounded mb-4 mx-auto w-1/2"></div>
+                  <div className="h-4 bg-green-200 rounded-full mb-4 mx-auto w-2/3"></div>
+                  <div className="space-y-3">
+                    <div className="h-11 bg-[#65000b]/20 rounded-xl"></div>
+                    <div className="h-9 bg-gray-200 rounded-xl"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+            {products.slice(0, 4).map(p => {
+              const price = Math.round((p.weight * goldRate) + p.making);
+              return (
+                <div key={p.id} className="group product-card glass-card rounded-3xl overflow-hidden shadow-depth hover:shadow-depth-xl h-full flex flex-col">
+                  <div className="aspect-square relative image-zoom">
+                    <Image src={p.image} alt={p.name} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw" className="object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#3b0a0a]/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                  </div>
+                  <div className="p-6 text-center flex flex-col flex-grow justify-between">
+                    <div>
+                      <h4 className="text-lg font-medium text-[#1a1a1a] tracking-wide">{p.name}</h4>
+                      <p className="text-2xl font-bold text-[#65000b] my-3 tracking-wide">₹{price.toLocaleString("en-IN")}</p>
+                      <p className="text-green-600 text-xs font-medium mb-4">
+                        <span className="bg-green-100/80 px-3 py-1.5 rounded-full">✔ BIS Hallmarked</span>
+                      </p>
+                    </div>
+                    <div className="mt-auto flex flex-col gap-3">
+                      <a 
+                        href={`https://wa.me/${PHONE}?text=नमस्ते, मुझे ${p.name} में इंटरेस्ट है (₹${price}).`}
+                        className="w-full inline-block btn-primary text-white py-3 rounded-xl font-bold text-sm hover:scale-105 active:scale-95"
+                      >
+                        WhatsApp पर पूछें 💬
+                      </a>
+                      <button
+                        onClick={() => setSelectedProduct(p)}
+                        className="w-full btn-secondary py-2.5 rounded-xl font-bold text-sm hover:scale-105 active:scale-95"
+                      >
+                        डिटेल देखें
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* 7. FOOTER (Luxury) */}
+      <footer className="bg-gradient-to-b from-[#3b0a0a] to-[#1a0505] text-white pt-24 pb-12 border-t-2 border-gold/30 shadow-lg">
+        <div className="container mx-auto px-6 text-center">
+          <h2 className="text-gold font-serif text-3xl md:text-4xl mb-3 tracking-[0.1em]">ANSHU JEWELLERS</h2>
+          <p className="text-white/80 text-base mb-12 tracking-wide">Burhar का Trusted Jewellery Store</p>
+          <div className="gold-divider w-32 mx-auto mb-10" />
+          <div className="flex justify-center gap-10 text-sm text-gray-300 mb-12 tracking-wide">
+            <Link href="/terms" className="hover:text-gold transition-all duration-300">Terms</Link>
+            <Link href="/privacy" className="hover:text-gold transition-all duration-300">Privacy</Link>
+          </div>
+          <p className="text-[11px] text-gray-400 tracking-[0.2em] uppercase mb-4">
+            Since 1950s | BIS Hallmarked Jewellery
+          </p>
+          <p className="text-[10px] text-gray-500 tracking-wide">
+            Powered by <a href="https://lav-digital-site.vercel.app/" target="_blank" className="text-gold font-bold hover:underline transition">BharatOS</a>
+          </p>
+        </div>
+      </footer>
+
+      {/* PRODUCT DETAIL MODAL */}
+      {selectedProduct && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+          onClick={() => setSelectedProduct(null)}
+        >
+          <div
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white/90 backdrop-blur-md shadow-[0_20px_60px_rgba(0,0,0,0.3)] p-5 pb-24"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header with Close Button */}
+            <div className="relative h-64">
+              <Image
+                src={selectedProduct.image}
+                alt={selectedProduct.name}
+                fill
+                sizes="100vw"
+                className="object-cover"
+              />
+              <button
+                onClick={() => setSelectedProduct(null)}
+                className="absolute top-3 right-3 bg-black/20 backdrop-blur-sm text-white p-2 rounded-full hover:bg-black/40 transition-all duration-300"
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Product Details */}
+            <div className="mt-4 space-y-4">
+              <h3 className="text-xl font-bold text-[#1a1a1a] tracking-wide">
+                {selectedProduct.name}
+              </h3>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="bg-gray-50/80 p-3 rounded-xl">
+                  <p className="text-gray-600 font-medium">Weight</p>
+                  <span className="font-bold text-[#1a1a1a]">{selectedProduct.weight} grams</span>
+                </div>
+                <div className="bg-gray-50/80 p-3 rounded-xl">
+                  <p className="text-gray-600 font-medium">Making Charges</p>
+                  <span className="font-bold text-[#1a1a1a]">₹{selectedProduct.making.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="bg-gray-50/80 p-3 rounded-xl">
+                  <p className="text-gray-600 font-medium">Category</p>
+                  <span className="font-bold text-[#1a1a1a] capitalize">{selectedProduct.category || 'N/A'}</span>
+                </div>
+                <div className="bg-green-50/80 p-3 rounded-xl">
+                  <p className="text-green-600 font-medium">Stock</p>
+                  <span className="font-bold text-green-600">{selectedProduct.stock || 0} units</span>
+                </div>
+              </div>
+
+              <div className="bg-[#65000b]/5 p-4 rounded-xl border border-[#65000b]/10">
+                <p className="text-sm text-gray-600 font-medium mb-1">Total Price</p>
+                <p className="text-2xl font-bold text-[#65000b] tracking-wide">
+                  ₹{Math.round((selectedProduct.weight * goldRate) + selectedProduct.making).toLocaleString("en-IN")}
+                </p>
+              </div>
+
+              {/* WhatsApp Button in Modal */}
+              <a
+                href={`https://wa.me/${PHONE}?text=Namaste%20Anshu%20Jewellers,%20mujhe%20${selectedProduct.name}%20(₹${Math.round((selectedProduct.weight * goldRate) + selectedProduct.making).toLocaleString("en-IN")})%20ke%20bare%20me%20jankari%20chahiye.`}
+                target="_blank"
+                className="btn-primary w-full text-white py-4 rounded-xl font-bold text-lg mt-6 flex items-center justify-center gap-2 hover:scale-105 active:scale-95"
+              >
+                <span>WhatsApp पर पूछें 💬</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  </section>
-
-  {/* INSTAGRAM FOLLOW */}
-  <section className="instagram-section py-16 px-6">
-    <div className="container mx-auto text-center">
-      <h3 className="text-3xl text-[#D4AF37] mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
-        Follow Us on Instagram ✨
-      </h3>
-      <p className="text-gray-300 mb-6">
-        Daily Designs • Latest Offers • Real Jewellery 💎
-      </p>
-      <a
-        href="https://instagram.com/anshujewl.forever"
-        target="_blank"
-        className="btn-gold px-8 py-3 text-lg font-semibold rounded-lg transition-all duration-300 hover:scale-105"
-      >
-        @anshujewl.forever → Follow Now
-      </a>
-    </div>
-  </section>
-
-  {/* FOOTER */}
-  <footer className="text-center p-6 border-t border-gray-800">
-    <p className="text-gray-500">© 2026 Anshu Jewellers</p>
-    <p className="text-gray-500 text-sm">
-      Best Jewellery Shop in Burhar, Shahdol (M.P.)
-    </p>
-    <div className="flex justify-center gap-4 text-sm text-gray-500 mt-2">
-      <Link href="/terms">Terms & Conditions</Link>
-      <Link href="/privacy">Privacy Policy</Link>
-    </div>
-    <p className="text-gray-500 text-sm mt-2">
-      GSTIN: 23DKHPS2997L1ZD
-    </p>
-    <p className="text-xs text-gray-500 mt-1">
-      Powered by <a href="https://lav-digital-site.vercel.app/" target="_blank" className="text-yellow-500 hover:underline">Bharat OS</a>
-    </p>
-  </footer>
-</div>
-
-);
+  );
 }

@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 🟢 PRODUCTS (Public read, no public write)
+    match /products/{doc} {
+      allow read: if true;
+      allow write: if false; // Writes should happen via Admin SDK or API with Auth
+    }
+
+    // 🟢 LEADS (User can submit, read restricted)
+    match /leads/{doc} {
+      allow create: if true;
+      allow read, update, delete: if false;
+    }
+
+    // 🟢 GOLD RATE (Public read, no public write)
+    match /goldRate/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 🔒 DEFAULT BLOCK
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
