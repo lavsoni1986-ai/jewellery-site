@@ -7,7 +7,7 @@ const withPWA = withPWAInit({
   reloadOnOnline: true,
   swMinify: true,
   disable: process.env.NODE_ENV === 'development',
-  register: false,
+  register: true,
 });
 
 /** @type {import('next').NextConfig} */
