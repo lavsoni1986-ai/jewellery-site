@@ -36,7 +36,6 @@ export default function RootLayout({
     >
       <head>
         <meta name="theme-color" content="#D4AF37" />
-        <link rel="manifest" href="/manifest.json" />
       </head>
       <body className={`min-h-full flex flex-col ${poppins.className}`}>
         <Script
