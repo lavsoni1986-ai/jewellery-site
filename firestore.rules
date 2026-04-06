@@ -2,25 +2,42 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 🟢 PRODUCTS (Public read, no public write)
-    match /products/{doc} {
+    // Gold rate - read for everyone, write only for authenticated users
+    match /goldRate/{document} {
       allow read: if true;
-      allow write: if false; // Writes should happen via Admin SDK or API with Auth
+      allow write: if request.auth != null;
     }
 
-    // 🟢 LEADS (User can submit, read restricted)
-    match /leads/{doc} {
-      allow create: if true;
-      allow read, update, delete: if false;
-    }
-
-    // 🟢 GOLD RATE (Public read, no public write)
-    match /goldRate/{doc} {
+    // Gold rate history - read for everyone, write only for authenticated users
+    match /goldRateHistory/{document} {
       allow read: if true;
-      allow write: if false;
+      allow write: if request.auth != null;
     }
 
-    // 🔒 DEFAULT BLOCK
+    // Products - read for everyone, write only for authenticated users
+    match /products/{document} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Categories - read for everyone, write only for authenticated users
+    match /categories/{document} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Leads - write for everyone (contact forms), read only for authenticated users
+    match /leads/{document} {
+      allow read: if request.auth != null;
+      allow write: if true;
+    }
+
+    // System settings - read/write only for authenticated users
+    match /system/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Default deny for any other collections
     match /{document=**} {
       allow read, write: if false;
     }

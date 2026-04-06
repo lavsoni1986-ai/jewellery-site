@@ -75,7 +75,7 @@ useEffect(() => {
                         : 'Recent'}
                     </p>
                     <button
-                      onClick={() => window.open(`https://wa.me/919425182098?text=Hi, regarding your enquiry for ${lead.productName}`, '_blank')}
+                      onClick={() => window.open(`https://wa.me/919425182098?text=Hi, regarding your enquiry for ${lead.productName}`, '_blank', 'noopener,noreferrer')}
                       className="mt-2 bg-[#25D366] text-white px-3 py-1 rounded text-xs hover:bg-[#128C7E] transition"
                     >
                       Reply

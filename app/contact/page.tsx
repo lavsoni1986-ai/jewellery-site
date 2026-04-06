@@ -1,25 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { PHONE } from "@/lib/config";
-import { db } from "@/lib/firebase";
-import { getDoc, doc } from "firebase/firestore";
+import { useApp } from "@/context/AppContext";
 import { Heart, Menu, X, Phone, MapPin, MessageCircle } from "lucide-react";
 
 export default function Contact() {
-  const [goldRate, setGoldRate] = useState<number>(0);
+  const { goldRate } = useApp();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const fetchGoldRate = async () => {
-      const goldRateDoc = await getDoc(doc(db, "goldRate", "current"));
-      if (goldRateDoc.exists()) {
-        setGoldRate(goldRateDoc.data().rate);
-      }
-    };
-    fetchGoldRate();
-  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#fff5f5] via-[#fce4e4] to-[#f8f1f1] text-[#1a1a1a] selection:bg-rosewood selection:text-white noise-bg pb-28 md:pb-16">
@@ -88,7 +77,8 @@ export default function Contact() {
             onClick={() =>
               window.open(
                 `https://wa.me/${PHONE}?text=Namaste%20Anshu%20Jewellers,%20mujhe%20jewellery%20ke%20bare%20me%20puchna%20hai`,
-                "_blank"
+                "_blank",
+                "noopener,noreferrer"
               )
             }
           >
