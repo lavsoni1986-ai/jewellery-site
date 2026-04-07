@@ -47,6 +47,7 @@ export default function RootLayout({
     >
       <head>
         <meta name="theme-color" content="#D4AF37" />
+        <link rel="manifest" href="/manifest.webmanifest" />
       </head>
       <body className="min-h-full flex flex-col font-sans">
         <Script
