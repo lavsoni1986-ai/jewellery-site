@@ -40,10 +40,11 @@ h1, h2, h3, h4 {
 
 /* === LUXURY TYPOGRAPHY SYSTEM === */
 
-body {
+html, body {
   font-family: 'Poppins', sans-serif;
   background: #f6f1ee;
   color: #4a2c2c;
+  overflow-x: hidden;
 }
 
 /* Headings */
@@ -108,6 +109,7 @@ p {
 /* Hero Section */
 .hero {
   align-items: center;
+  overflow: visible;
 }
 
 .hero p {
