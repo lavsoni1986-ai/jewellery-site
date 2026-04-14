@@ -277,7 +277,7 @@ Agar similar designs available ho to wo bhi share karein.`;
       <div className="container mx-auto px-4 sm:px-6">
         {/* 1. SECTION HEADER + FILTER */}
         <div className="w-full flex flex-col items-center mt-10">
-          <h1 className="font-cinzel text-2xl sm:text-4xl md:text-6xl lg:text-7xl xl:text-8xl leading-tight text-center px-4 text-[#65000b]">
+          <h1 className="font-cinzel text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl leading-tight text-center px-4 text-[#65000b]">
   OUR COLLECTION
 </h1>
 
