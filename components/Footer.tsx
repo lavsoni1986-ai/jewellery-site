@@ -8,7 +8,12 @@ export default function Footer() {
         <h2 className="mb-4">ANSHU JEWELLERS</h2>
 
         <p className="text-sm text-[#8A6A6A] mb-6">
-          Burhar का trusted jewellery destination since 1950
+          Burhar का trusted jewellery destination since 1954
+        </p>
+
+        {/* Address */}
+        <p className="text-sm text-[#8A6A6A] mb-6">
+          Station Road, near Jain Mandir, Burhar, Shahdol (M.P.)
         </p>
 
         {/* Links */}
@@ -27,7 +32,7 @@ export default function Footer() {
         </a>
 
         <p className="text-xs tracking-widest mt-4 text-[#8A6A6A]">
-          BIS HALLMARKED • TRUSTED SINCE 1950
+          BIS HALLMARKED • TRUSTED SINCE 1954
         </p>
 
         <p className="mt-4 italic text-sm text-[#6A5A5A]">

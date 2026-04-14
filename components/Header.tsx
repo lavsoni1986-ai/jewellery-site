@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 export default function Header() {
   const pathname = usePathname();
   return (
-    <header>
-      <div className="container-luxury flex justify-between items-center">
+    <header className="sticky top-0 z-[100] bg-[#65000b] shadow-xl w-full">
+      <div className="container-luxury flex justify-between items-center py-3">
 
         <div className="text-2xl font-semibold header-logo">
           ANSHU JEWELLERS

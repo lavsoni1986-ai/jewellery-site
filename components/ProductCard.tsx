@@ -1,4 +1,5 @@
 import { PHONE } from "@/lib/config";
+import { enhanceJewelleryImage } from "@/lib/utils";
 
 interface Product {
   id: string;
@@ -19,9 +20,10 @@ export default function ProductCard({ product, goldRate }: { product: Product; g
     <div className="p-4">
 
       <img
-        src={product.image}
+        src={enhanceJewelleryImage(product.image)}
         className="w-full h-64 object-cover mb-4 rounded-2xl cursor-pointer hover:scale-105 transition-transform duration-300"
         alt={product.name}
+        loading="lazy"
       />
 
       <h3 className="product-title mb-2">

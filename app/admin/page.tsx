@@ -15,7 +15,7 @@ import {
   updateDoc,
   setDoc,
 } from "firebase/firestore";
-import { optimizeCloudinaryUrl } from "@/lib/utils";
+import { optimizeCloudinaryUrl, enhanceJewelleryImage, enhanceJewelleryImageBasic } from "@/lib/utils";
 import { Lock, LogOut, Upload } from "lucide-react";
 import jsPDF from "jspdf";
 
@@ -43,6 +43,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
 
   const [goldRate, setGoldRate] = useState("");
+  const [silverRate, setSilverRate] = useState("");
+  const [newsText, setNewsText] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategory, setNewCategory] = useState("");
@@ -52,6 +55,8 @@ export default function AdminPage() {
   const [uploading, setUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [useAdvanced, setUseAdvanced] = useState(true);
 
   const [form, setForm] = useState({
     name: "",
@@ -122,6 +127,7 @@ export default function AdminPage() {
     if (docSnap.exists()) {
       const data = docSnap.data();
       setGoldRate(data.rate.toString());
+      setSilverRate(data.silverRate?.toString() || "");
     }
   };
 
@@ -247,10 +253,51 @@ export default function AdminPage() {
   const updateGoldRate = async () => {
     await setDoc(doc(db, "goldRate", "current"), {
       rate: Number(goldRate),
+      silverRate: Number(silverRate),
       updatedAt: new Date(),
       timestamp: Date.now(),
     });
     // Real-time sync will automatically update the UI
+  };
+
+  const handleEnhance = async (currentUrl: string, productId: string) => {
+    setIsEnhancing(true);
+
+    try {
+      const enhancedUrl = useAdvanced ? enhanceJewelleryImage(currentUrl) : enhanceJewelleryImageBasic(currentUrl);
+
+      await updateDoc(doc(db, "products", productId), {
+        image: enhancedUrl
+      });
+
+      alert("फोटो अब प्रोफेशनल हो गई है! ✨");
+      fetchProducts(); // Refresh the list
+    } catch (error) {
+      console.error("Error enhancing image:", error);
+      alert("Enhancement failed. Please try again.");
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const handleNewsUpdate = async () => {
+    if (!newsText.trim()) {
+      alert("कृपया न्यूज़ टेक्स्ट दर्ज करें!");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const newsRef = doc(db, "settings", "updates");
+      await updateDoc(newsRef, { news: newsText, updatedAt: new Date() });
+      alert("न्यूज़ सफलतापूर्वक अपडेट हो गई! 💎");
+      setNewsText("");
+    } catch (error) {
+      console.error("Error updating news:", error);
+      alert("अपडेट में त्रुटि हुई। कृपया फिर से प्रयास करें।");
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const generateInvoice = (p: Product) => {
@@ -299,7 +346,7 @@ export default function AdminPage() {
     doc.setFontSize(18);
     doc.text("ANSHU JEWELLERS", 20, 15);
     doc.setFontSize(10);
-    doc.text("Since 1950", 20, 22);
+    doc.text("Since 1954", 20, 22);
     doc.text("GST No: GSTIN123456789", 20, 28);
 
     doc.setFontSize(12);
@@ -383,16 +430,25 @@ export default function AdminPage() {
           <div className="bg-[#111] border border-[#333] rounded-2xl p-6">
             <h2 className="text-xl font-semibold text-gold mb-4">Gold Rate Management</h2>
             <div className="space-y-4">
-              <div className="flex gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input
                   type="number"
                   value={goldRate}
                   onChange={(e) => setGoldRate(e.target.value)}
-                  placeholder="Today's Rate (per gram)"
-                  className="flex-1 p-3 bg-black border border-[#333] rounded-lg focus:border-gold outline-none"
+                  placeholder="Gold Rate (per gram)"
+                  className="p-3 bg-black border border-[#333] rounded-lg focus:border-gold outline-none"
                 />
+                <input
+                  type="number"
+                  value={silverRate}
+                  onChange={(e) => setSilverRate(e.target.value)}
+                  placeholder="Silver Rate (per gram)"
+                  className="p-3 bg-black border border-[#333] rounded-lg focus:border-gold outline-none"
+                />
+              </div>
+              <div className="flex gap-4">
                 <button onClick={updateGoldRate} className="bg-gold text-black px-6 py-3 rounded-lg font-bold hover:bg-[#B8952A] transition">
-                  Manual Update
+                  Update Rates
                 </button>
               </div>
               <div className="flex gap-4">
@@ -435,10 +491,40 @@ export default function AdminPage() {
               </div>
               <div className="text-sm text-gray-400">
                 <p>System auto-updates every 6 hours (after deployment)</p>
-                <p>Multi-source AI validation active</p>
+                <p>Multi-source AI validation active for both gold and silver</p>
                 <p>Rate history & volatility monitoring enabled</p>
                 <p className="text-yellow-400">Note: Auto-update works only on Vercel, not locally</p>
               </div>
+            </div>
+          </div>
+
+          {/* News Ticker Management */}
+          <div className="glass-card p-8 rounded-3xl border border-[#D4AF37]/20 mt-8">
+            <h2 className="text-2xl font-serif text-[#D4AF37] mb-6 tracking-wide">
+              NEWS TICKER MANAGEMENT
+            </h2>
+
+            <div className="flex flex-col gap-4">
+              <textarea
+                value={newsText}
+                onChange={(e) => setNewsText(e.target.value)}
+                placeholder="यहाँ नई न्यूज़ या ऑफर लिखें..."
+                className="w-full bg-black/50 border border-[#D4AF37]/30 rounded-xl p-4 text-white focus:outline-none focus:border-[#D4AF37] resize-none"
+                rows={3}
+                disabled={isUpdating}
+              />
+
+              <button
+                onClick={handleNewsUpdate}
+                disabled={isUpdating}
+                className={`font-bold py-3 rounded-xl transition-all active:scale-95 ${
+                  isUpdating
+                    ? "bg-gray-500 text-gray-300 cursor-not-allowed"
+                    : "bg-[#D4AF37] text-black hover:bg-[#B8860B]"
+                }`}
+              >
+                {isUpdating ? "Updating... 🔄" : "Update Live News 📢"}
+              </button>
             </div>
           </div>
 
@@ -449,7 +535,11 @@ export default function AdminPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                 <div className="bg-[#222] p-4 rounded-lg">
                   <h3 className="text-2xl font-bold text-green-400">{goldRate}</h3>
-                  <p className="text-sm text-gray-400">Current Rate</p>
+                  <p className="text-sm text-gray-400">Gold Rate</p>
+                </div>
+                <div className="bg-[#222] p-4 rounded-lg">
+                  <h3 className="text-2xl font-bold text-blue-400">{silverRate}</h3>
+                  <p className="text-sm text-gray-400">Silver Rate</p>
                 </div>
                 <div className="bg-[#222] p-4 rounded-lg">
                   <h3 className="text-2xl font-bold text-blue-400">99.5%</h3>
@@ -597,6 +687,27 @@ export default function AdminPage() {
                     <Image src={preview} alt="Preview" fill sizes="(max-width: 768px) 100vw, 400px" className="object-contain" />
                   </div>
                 )}
+
+                {editingId && form.image && (
+                  <div className="mt-2">
+                    <label className="flex items-center text-xs text-gray-300">
+                      <input
+                        type="checkbox"
+                        checked={useAdvanced}
+                        onChange={() => setUseAdvanced(!useAdvanced)}
+                        className="mr-2"
+                      />
+                      Advanced BG Removal (AI Add-on Required)
+                    </label>
+                    <button
+                      onClick={() => handleEnhance(form.image, editingId)}
+                      className="mt-1 text-xs bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                      disabled={isEnhancing}
+                    >
+                      {isEnhancing ? "Fixing..." : "Magic Fix: Professional BG & Light"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             <button
@@ -632,17 +743,24 @@ export default function AdminPage() {
                       return Math.round(subtotal + gst);
                     })().toLocaleString("en-IN")}` : "Set gold rate first"}</p>
                      <p className="text-sm text-gray-400">{p.carat || 22}K Gold</p>
-                     <div className="flex gap-2 mt-4">
-                       <button onClick={() => handleEdit(p)} className="flex-1 bg-gold text-black py-2 rounded text-sm font-bold hover:bg-[#B8952A] transition">
-                         Edit
-                       </button>
-                       <button onClick={() => generatePDF(p)} className="bg-green-600 text-white py-2 px-3 rounded text-sm font-bold hover:bg-green-700 transition">
-                         Bill
-                       </button>
-                       <button onClick={() => handleDelete(p.id)} className="flex-1 bg-red-900/50 text-red-200 py-2 rounded text-sm font-bold hover:bg-red-900 transition">
-                         Delete
-                       </button>
-                     </div>
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        <button onClick={() => handleEdit(p)} className="flex-1 bg-gold text-black py-2 rounded text-sm font-bold hover:bg-[#B8952A] transition">
+                          Edit
+                        </button>
+                        <button onClick={() => generatePDF(p)} className="bg-green-600 text-white py-2 px-3 rounded text-sm font-bold hover:bg-green-700 transition">
+                          Bill
+                        </button>
+                        <button onClick={() => handleDelete(p.id)} className="flex-1 bg-red-900/50 text-red-200 py-2 rounded text-sm font-bold hover:bg-red-900 transition">
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => handleEnhance(p.image, p.id)}
+                          disabled={isEnhancing}
+                          className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700 transition-all flex items-center gap-1 shadow-lg disabled:opacity-50"
+                        >
+                          ✨ {isEnhancing ? "Fixing..." : "Magic Fix"}
+                        </button>
+                      </div>
                   </div>
                 </div>
               ))}

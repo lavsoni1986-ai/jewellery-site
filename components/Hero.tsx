@@ -35,9 +35,9 @@ export default function Hero() {
             </FadeUp>
 
             <FadeUp delay={0.2}>
-              <p className="mb-6 since">
-                SINCE 1950
-              </p>
+               <p className="mb-6 since">
+                 SINCE 1954
+               </p>
             </FadeUp>
 
             <FadeUp delay={0.4}>

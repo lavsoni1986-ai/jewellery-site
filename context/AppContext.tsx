@@ -16,6 +16,7 @@ interface Product {
 
 interface AppContextType {
   goldRate: number;
+  silverRate: number;
   goldRateTimestamp: number | null;
   products: Product[];
   loading: boolean;
@@ -24,6 +25,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType>({
   goldRate: 0,
+  silverRate: 0,
   goldRateTimestamp: null,
   products: [],
   loading: true,
@@ -32,6 +34,7 @@ const AppContext = createContext<AppContextType>({
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [goldRate, setGoldRate] = useState<number>(0);
+  const [silverRate, setSilverRate] = useState<number>(0);
   const [goldRateTimestamp, setGoldRateTimestamp] = useState<number | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +51,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setGoldRate(data.rate || 0);
+        setSilverRate(data.silverRate || 0);
         setGoldRateTimestamp(data.lastUpdate || data.timestamp || null);
       }
     });
@@ -71,7 +75,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AppContext.Provider value={{ goldRate, goldRateTimestamp, products, loading, online }}>
+    <AppContext.Provider value={{ goldRate, silverRate, goldRateTimestamp, products, loading, online }}>
       {children}
     </AppContext.Provider>
   );

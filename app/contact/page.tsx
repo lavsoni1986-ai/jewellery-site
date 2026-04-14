@@ -21,7 +21,7 @@ export default function Contact() {
           </div>
           
           <h1 className="text-xl md:text-2xl font-serif tracking-[0.15em] text-[#65000b]">
-            ANSHU JEWELLERS <span className="text-[10px] block text-center opacity-70 font-sans tracking-wider">SINCE 1950</span>
+            ANSHU JEWELLERS <span className="text-[10px] block text-center opacity-70 font-sans tracking-wider">SINCE 1954</span>
           </h1>
 
           <div className="flex items-center gap-4">
@@ -93,7 +93,7 @@ export default function Contact() {
             <span className="text-gold text-lg">✔</span> BIS Hallmarked Jewellery
           </p>
           <p className="flex items-center justify-center gap-2">
-            <span className="text-gold text-lg">✔</span> Trusted Since 1950s
+            <span className="text-gold text-lg">✔</span> Trusted Since 1954
           </p>
         </div>
 

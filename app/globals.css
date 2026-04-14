@@ -115,7 +115,7 @@ p {
   line-height: 1.6;
 }
 
-/* Since 1950 Styling */
+/* Since 1954 Styling */
 .since {
   letter-spacing: 2px;
   font-size: 14px;
@@ -670,7 +670,8 @@ button:hover {
 /* Header Luxury Material */
 header {
   position: relative;
-  background: linear-gradient(90deg, #3b0a0a, #65000b);
+  background: #65000b;
+  z-index: 100;
   padding: 16px 40px;
 
   box-shadow:
