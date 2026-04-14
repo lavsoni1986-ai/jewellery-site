@@ -31,7 +31,7 @@ const CATEGORY_MAP: { [key: string]: string } = {
   // Necklaces
   "necklace": "necklace", "necklaces": "necklace", "haar": "necklace", "set": "necklace", "हार": "necklace", "mala": "necklace", "chain": "necklace", "pendant": "necklace", "locket": "necklace", "choker": "necklace",
   // Additional Categories for Future-Proofing
-  "bracelet": "bracelet", "anklet": "anklet", "nose ring": "nose ring", "mangalsutra": "mangalsutra"
+  "nose ring": "nose ring", "mangalsutra": "mangalsutra"
 };
 
 // Normalization function: किसी भी शब्द को 'Sovereign Key' में बदलेगा, अब कैपिटलाइजेशन और स्पेसल कैरेक्टर्स को भी हैंडल करें
