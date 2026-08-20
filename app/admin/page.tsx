@@ -112,7 +112,6 @@ export default function AdminPage() {
 
       if (res.ok) {
         localStorage.setItem("admin", "true");
-        localStorage.setItem("adminPassword", password);
         setIsAuthenticated(true);
         fetchProducts();
         fetchCategories();
@@ -133,15 +132,45 @@ export default function AdminPage() {
     setIsSyncing(true);
     setSyncSummary(dryRun ? "Running dry-run preflight check..." : "Synchronizing JewelleryCard catalogue with Firebase...");
     try {
-      const storedPassword = localStorage.getItem("adminPassword") || password || "";
-      const res = await fetch("/api/sync/jewellerycard", {
+      let res = await fetch("/api/sync/jewellerycard", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-secret": storedPassword,
         },
         body: JSON.stringify({ dryRun, maxPages: 100 }),
       });
+
+      // If session cookie is missing or expired, prompt for password to authenticate
+      if (res.status === 401) {
+        const enteredPassword = prompt("Admin Session Required for JewelleryCard Sync.\nPlease enter your Admin Password:");
+        if (!enteredPassword) {
+          setSyncSummary("❌ Sync cancelled: Admin authentication required.");
+          setIsSyncing(false);
+          return;
+        }
+
+        const loginRes = await fetch("/api/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: enteredPassword }),
+        });
+
+        if (!loginRes.ok) {
+          alert("Invalid Admin Password");
+          setSyncSummary("❌ Authentication failed: Invalid Password.");
+          setIsSyncing(false);
+          return;
+        }
+
+        // Retry the sync now that session cookie is set
+        res = await fetch("/api/sync/jewellerycard", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ dryRun, maxPages: 100 }),
+        });
+      }
 
       const data = await res.json();
       if (data.success || data.actions) {
@@ -167,8 +196,14 @@ export default function AdminPage() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/admin/login", { method: "DELETE" });
+    } catch {
+      // Ignore network errors on logout
+    }
     localStorage.removeItem("admin");
+    localStorage.removeItem("adminPassword");
     setIsAuthenticated(false);
     router.push("/");
   };
