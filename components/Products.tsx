@@ -12,9 +12,9 @@ interface Product {
   id: string;
   name: string;
   image: string;
-  weight: number;
-  carat: number;
-  making: number;
+  weight?: number;
+  carat?: number;
+  making?: number;
 }
 
 export default function Products() {
@@ -63,29 +63,36 @@ export default function Products() {
         </FadeUp>
 
         <div className="luxury-grid grid md:grid-cols-3">
-          {products.map((product, index) => (
-            <FadeUp key={product.id} delay={index * 0.1}>
-              <div className="product-card">
-                <div
-                  onClick={() => setSelectedProduct(product)}
-                  className="cursor-pointer"
-                >
-                  <Image
-                    src={optimizeCloudinaryUrl(product.image)}
-                    width={400}
-                    height={400}
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    loading="lazy"
-                    className="w-full h-[280px] object-cover rounded-2xl hover:scale-105 transition-transform duration-300"
-                    alt={product.name}
-                  />
-                  <h3 className="product-title mb-2 mt-4">{product.name}</h3>
-                  <p className="price mb-1 text-[#8A6A6A]">₹{calculatePrice(product, goldRate).toLocaleString("en-IN")}</p>
-                  <p className="text-xs text-gray-500 mb-4">Updated with live gold rates</p>
+          {products.map((product, index) => {
+            const price = calculatePrice(product, goldRate);
+            return (
+              <FadeUp key={product.id} delay={index * 0.1}>
+                <div className="product-card">
+                  <div
+                    onClick={() => setSelectedProduct(product)}
+                    className="cursor-pointer"
+                  >
+                    <Image
+                      src={optimizeCloudinaryUrl(product.image)}
+                      width={400}
+                      height={400}
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      loading="lazy"
+                      className="w-full h-[280px] object-cover rounded-2xl hover:scale-105 transition-transform duration-300"
+                      alt={product.name}
+                    />
+                    <h3 className="product-title mb-2 mt-4">{product.name}</h3>
+                    <p className="price mb-1 text-[#8A6A6A]">
+                      {price > 0 ? `₹${price.toLocaleString("en-IN")}` : "Price on Enquiry"}
+                    </p>
+                    <p className="text-xs text-gray-500 mb-4">
+                      {price > 0 ? "Updated with live gold rates" : "Contact for weight & price details"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </FadeUp>
-          ))}
+              </FadeUp>
+            );
+          })}
         </div>
 
         {selectedProduct && (

@@ -9,12 +9,14 @@ import { optimizeCloudinaryUrl } from "@/lib/utils";
 interface Product {
   id: string;
   name: string;
-  weight: number;
-  making: number;
   image: string;
+  weight?: number;
+  making?: number;
   stock?: number;
   category?: string;
   carat?: number;
+  jewelleryCardProductId?: string;
+  source?: string;
 }
 
 interface ProductDetailModalProps {
@@ -27,41 +29,37 @@ interface ProductDetailModalProps {
 
 export default function ProductDetailModal({ product, goldRate, products, onClose, onFilterChange }: ProductDetailModalProps) {
   const getGoldStatus = () => {
-    // This would need previous rate, but for simplicity, assuming stable
-    return { label: "Stable today", color: "text-green-600" };
+    return { label: "Live Rate", color: "text-green-600" };
   };
 
   const getSimilarProducts = (current: Product) => {
-    if (!goldRate) return [];
-    const currentPrice = Math.round((current.weight * goldRate) * (1 + current.making / 100));
+    if (!goldRate || !current.weight) return [];
+    const currentPrice = Math.round((current.weight * goldRate) * (1 + (current.making || 0) / 100));
     return products.filter(p =>
       p.id !== current.id &&
       p.category === current.category &&
-      Math.abs(Math.round((p.weight * goldRate) * (1 + p.making / 100)) - currentPrice) < 10000
+      p.weight &&
+      Math.abs(Math.round((p.weight * goldRate) * (1 + (p.making || 0) / 100)) - currentPrice) < 10000
     ).slice(0, 3);
   };
 
   const generateWhatsAppMessage = (product: Product, goldRate: number) => {
-    const goldValue = product.weight * goldRate;
-    const makingCharges = goldValue * (product.making / 100);
+    const hasWeight = typeof product.weight === "number" && product.weight > 0;
+    const goldValue = hasWeight ? product.weight! * goldRate : 0;
+    const makingCharges = goldValue * ((product.making || 0) / 100);
     const subtotal = goldValue + makingCharges;
     const gst = subtotal * 0.03;
     const finalPrice = Math.round(subtotal + gst);
-    const carat = product.carat || 22;
+    const carat = product.carat;
     const status = getGoldStatus();
     const statusLabel = status.label;
 
     return `Hi, mujhe ${product.name} pasand aaya.
 
 Details:
-• Weight: ${product.weight}g
-• ${carat}K Gold
-• Making: ${product.making}%
-• Current Price: ₹${finalPrice}
-
-Gold Rate: ₹${goldRate}/gm (${statusLabel})
-
-Kya aaj ka final best price mil sakta hai?
+${hasWeight ? `• Weight: ${product.weight}g\n` : ""}${carat ? `• ${carat}K Gold\n` : ""}${product.making ? `• Making: ${product.making}%\n` : ""}${finalPrice > 0 ? `• Estimated Price: ₹${finalPrice}\n` : ""}
+${goldRate > 0 ? `Gold Rate: ₹${goldRate}/gm (${statusLabel})\n` : ""}
+Kya iska final best price aur availability mil sakti hai?
 Agar similar designs available ho to wo bhi share karein.`;
   };
 
@@ -128,8 +126,22 @@ Agar similar designs available ho to wo bhi share karein.`;
             </h3>
             <div className="space-y-3">
               {(() => {
-                const goldValue = product.weight * goldRate;
-                const makingCharges = goldValue * (product.making / 100);
+                const hasWeight = typeof product.weight === "number" && product.weight > 0;
+                if (!hasWeight) {
+                  return (
+                    <div className="bg-[#65000b]/10 p-5 rounded-2xl text-center">
+                      <span className="text-[#65000b] text-sm font-medium block mb-1">Customised Weight & Price</span>
+                      <span className="text-2xl font-bold text-[#65000b]">Price on Enquiry</span>
+                      <p className="text-xs text-gray-600 mt-2">
+                        This jewellery piece can be customized to your desired weight and purity. Contact us on WhatsApp for live pricing based on current gold rates.
+                      </p>
+                    </div>
+                  );
+                }
+
+                const goldValue = product.weight! * goldRate;
+                const makingPercent = typeof product.making === "number" ? product.making : 0;
+                const makingCharges = goldValue * (makingPercent / 100);
                 const subtotal = goldValue + makingCharges;
                 const gst = subtotal * 0.03;
                 const total = Math.round(subtotal + gst);
@@ -140,7 +152,7 @@ Agar similar designs available ho to wo bhi share karein.`;
                       <span className="font-bold text-[#1a1a1a]">₹{goldValue.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Making ({product.making}%)</span>
+                      <span className="text-gray-600">Making ({makingPercent}%)</span>
                       <span className="font-bold text-[#1a1a1a]">₹{makingCharges.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -152,7 +164,7 @@ Agar similar designs available ho to wo bhi share karein.`;
                       <span className="text-2xl font-semibold text-[#65000b]">₹{total.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="text-sm text-gray-600 mt-2 italic">
-                      🤖 AI Note: Current pricing is {getGoldStatus().label.toLowerCase()} based on today's gold rate.
+                      🤖 AI Note: Current pricing is {getGoldStatus().label.toLowerCase()} based on today&apos;s gold rate.
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
                       This price is calculated based on current gold rate and market conditions.
@@ -175,7 +187,8 @@ Agar similar designs available ho to wo bhi share karein.`;
               </h3>
               <div className="grid grid-cols-1 gap-3">
                 {getSimilarProducts(product).map((sim) => {
-                  const simPrice = Math.round((sim.weight * goldRate) * (1 + sim.making / 100));
+                  const hasWeight = typeof sim.weight === "number" && sim.weight > 0;
+                  const simPrice = hasWeight ? Math.round((sim.weight! * goldRate) * (1 + (sim.making || 0) / 100)) : 0;
                   return (
                       <div key={sim.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition" onClick={() => {}}>
                         <Image
@@ -189,7 +202,9 @@ Agar similar designs available ho to wo bhi share karein.`;
                         />
                       <div className="flex-1">
                         <p className="font-medium text-[#1a1a1a] text-sm">{sim.name}</p>
-                        <p className="text-[#65000b] font-bold">₹{simPrice.toLocaleString("en-IN")}</p>
+                        <p className="text-[#65000b] font-bold">
+                          {simPrice > 0 ? `₹${simPrice.toLocaleString("en-IN")}` : "Price on Enquiry"}
+                        </p>
                       </div>
                     </div>
                   );

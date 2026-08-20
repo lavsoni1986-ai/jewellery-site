@@ -5,16 +5,17 @@ interface Product {
   id: string;
   name: string;
   image: string;
-  price: number;
-  weight: number;
-  carat: number;
-  making: number;
+  price?: number;
+  weight?: number;
+  carat?: number;
+  making?: number;
 }
 
 import { calculatePrice } from "@/lib/calcPrice";
 
 export default function ProductCard({ product, goldRate }: { product: Product; goldRate: number }) {
   const calculatedPrice = calculatePrice(product, goldRate);
+  const hasLivePrice = calculatedPrice > 0;
 
   return (
     <div className="p-4">
@@ -32,20 +33,24 @@ export default function ProductCard({ product, goldRate }: { product: Product; g
 
       <div className="flex items-center gap-2 mb-1">
         <p className="price text-[#8A6A6A]">
-          ₹{calculatedPrice.toLocaleString("en-IN")}
+          {hasLivePrice ? `₹${calculatedPrice.toLocaleString("en-IN")}` : "Price on Enquiry"}
         </p>
-        <span className="text-xs text-green-600 font-medium">
-          Live Price
-        </span>
+        {hasLivePrice && (
+          <span className="text-xs text-green-600 font-medium">
+            Live Price
+          </span>
+        )}
       </div>
 
       <p className="text-xs text-gray-500 mb-2">
-        Updated with live gold rates
+        {hasLivePrice ? "Updated with live gold rates" : "Contact for weight & price details"}
       </p>
 
-      <p className="text-xs text-amber-600 mb-4">
-        Price may change with gold market
-      </p>
+      {hasLivePrice && (
+        <p className="text-xs text-amber-600 mb-4">
+          Price may change with gold market
+        </p>
+      )}
 
     </div>
   );

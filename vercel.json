@@ -3,6 +3,10 @@
     {
       "path": "/api/gold-rate",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/sync/jewellerycard",
+      "schedule": "0 * * * *"
     }
   ]
 }

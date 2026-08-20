@@ -22,12 +22,17 @@ import jsPDF from "jspdf";
 interface Product {
   id: string;
   name: string;
-  weight: number;
-  making: number;
+  weight?: number;
+  making?: number;
   image: string;
   stock?: number;
   category?: string;
   carat?: number;
+  jewelleryCardProductId?: string;
+  source?: string;
+  sourceProductId?: string;
+  sourceUrl?: string;
+  lastSyncedAt?: unknown;
 }
 
 interface Category {
@@ -58,6 +63,11 @@ export default function AdminPage() {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [useAdvanced, setUseAdvanced] = useState(true);
 
+  // JewelleryCard sync state
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncSummary, setSyncSummary] = useState<string | null>(null);
+  const [lastSyncLog, setLastSyncLog] = useState<Record<string, unknown> | null>(null);
+
   const [form, setForm] = useState({
     name: "",
     weight: "",
@@ -75,8 +85,20 @@ export default function AdminPage() {
       fetchProducts();
       fetchCategories();
       fetchGoldRate();
+      fetchSyncStatus();
     }
   }, []);
+
+  const fetchSyncStatus = async () => {
+    try {
+      const syncDoc = await getDoc(doc(db, "system", "jewelleryCardSync"));
+      if (syncDoc.exists()) {
+        setLastSyncLog(syncDoc.data());
+      }
+    } catch {
+      // Ignore if document does not exist yet
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,10 +112,12 @@ export default function AdminPage() {
 
       if (res.ok) {
         localStorage.setItem("admin", "true");
+        localStorage.setItem("adminPassword", password);
         setIsAuthenticated(true);
         fetchProducts();
         fetchCategories();
         fetchGoldRate();
+        fetchSyncStatus();
       } else {
         alert("Wrong password");
       }
@@ -102,6 +126,44 @@ export default function AdminPage() {
       alert("Login failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSyncCatalogue = async (dryRun = false) => {
+    setIsSyncing(true);
+    setSyncSummary(dryRun ? "Running dry-run preflight check..." : "Synchronizing JewelleryCard catalogue with Firebase...");
+    try {
+      const storedPassword = localStorage.getItem("adminPassword") || password || "";
+      const res = await fetch("/api/sync/jewellerycard", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-secret": storedPassword,
+        },
+        body: JSON.stringify({ dryRun, maxPages: 100 }),
+      });
+
+      const data = await res.json();
+      if (data.success || data.actions) {
+        const modeText = dryRun ? "🔍 Dry Run Report" : "✅ Synchronization Successful";
+        const summary = `${modeText}:\n• Fetched: ${data.totalFetched} products (${data.pagesFetched} pages)\n• Added: ${data.addedCount}\n• Updated: ${data.updatedCount}\n• Unchanged: ${data.unchangedCount}\n• Skipped: ${data.skippedCount}`;
+        setSyncSummary(summary);
+        alert(summary);
+        if (!dryRun) {
+          fetchProducts();
+          fetchSyncStatus();
+        }
+      } else {
+        const errMsg = data.error || data.message || "Unknown error";
+        setSyncSummary(`❌ Sync Failed: ${errMsg}`);
+        alert(`Sync Failed: ${errMsg}`);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSyncSummary(`❌ Error: ${msg}`);
+      alert(`Error executing sync: ${msg}`);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -331,11 +393,21 @@ export default function AdminPage() {
   };
 
   const generatePDF = (p: Product) => {
+    if (!p.weight || Number(p.weight) <= 0) {
+      alert("Please edit the product to set its weight and making charges before generating an invoice.");
+      return;
+    }
+
     const doc = new jsPDF();
 
-    const purity = (p.carat || 22) / 24;
-    const goldPrice = p.weight * Number(goldRate) * purity;
-    const makingCharge = goldPrice * (p.making / 100);
+    const weight = Number(p.weight);
+    const making = Number(p.making || 0);
+    const carat = Number(p.carat || 22);
+    const rate = Number(goldRate || 0);
+
+    const purity = carat / 24;
+    const goldPrice = weight * rate * purity;
+    const makingCharge = goldPrice * (making / 100);
     const subtotal = goldPrice + makingCharge;
     const gst = subtotal * 0.03;
     const total = subtotal + gst;
@@ -495,6 +567,69 @@ export default function AdminPage() {
                 <p>Rate history & volatility monitoring enabled</p>
                 <p className="text-yellow-400">Note: Auto-update works only on Vercel, not locally</p>
               </div>
+            </div>
+          </div>
+
+          {/* JewelleryCard Catalogue Sync Section */}
+          <div className="bg-[#111] border border-[#D4AF37]/30 rounded-2xl p-6 shadow-xl">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gold flex items-center gap-2">
+                  <span>💎</span> JewelleryCard Catalogue Integration
+                </h2>
+                <p className="text-sm text-gray-400 mt-1">
+                  Source: <span className="text-[#D4AF37] font-mono">jewellerycard.in/universal-products/245/ANSHU-JEWELLERS</span>
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => handleSyncCatalogue(true)}
+                  disabled={isSyncing}
+                  className="bg-[#222] border border-[#D4AF37]/50 text-[#D4AF37] px-4 py-2.5 rounded-lg font-bold hover:bg-[#333] transition disabled:opacity-50 text-sm flex items-center gap-1.5"
+                >
+                  🔍 Dry-Run Check
+                </button>
+                <button
+                  onClick={() => handleSyncCatalogue(false)}
+                  disabled={isSyncing}
+                  className="bg-gold text-black px-6 py-2.5 rounded-lg font-bold hover:bg-[#B8952A] transition disabled:opacity-50 text-sm flex items-center gap-1.5 shadow-lg"
+                >
+                  {isSyncing ? "Syncing Catalogue... 🔄" : "Sync JewelleryCard Now 🔄"}
+                </button>
+              </div>
+            </div>
+
+            {syncSummary && (
+              <div className="mt-4 p-4 bg-black/60 border border-[#D4AF37]/30 rounded-xl text-sm whitespace-pre-line text-gray-200">
+                {syncSummary}
+              </div>
+            )}
+
+            {lastSyncLog && (
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-400">
+                <div className="bg-black/40 p-3 rounded-lg border border-[#222]">
+                  <span className="text-gray-500 block">Total Synced</span>
+                  <span className="text-white text-base font-bold">{String(lastSyncLog.totalProducts || 0)}</span>
+                </div>
+                <div className="bg-black/40 p-3 rounded-lg border border-[#222]">
+                  <span className="text-gray-500 block">Added</span>
+                  <span className="text-green-400 text-base font-bold">{String(lastSyncLog.addedCount || 0)}</span>
+                </div>
+                <div className="bg-black/40 p-3 rounded-lg border border-[#222]">
+                  <span className="text-gray-500 block">Updated</span>
+                  <span className="text-blue-400 text-base font-bold">{String(lastSyncLog.updatedCount || 0)}</span>
+                </div>
+                <div className="bg-black/40 p-3 rounded-lg border border-[#222]">
+                  <span className="text-gray-500 block">Catalogue Size</span>
+                  <span className="text-[#D4AF37] text-base font-bold">{String(lastSyncLog.totalCatalogueReported || "1,120+")}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4 text-xs text-gray-400 space-y-1">
+              <p>✔ Idempotent: safe to run multiple times without creating duplicate products</p>
+              <p>✔ Safe: existing custom weights, making charges, and manual products are strictly preserved</p>
+              <p>✔ Auto-sync is configured via Vercel Cron every hour</p>
             </div>
           </div>
 
@@ -729,20 +864,37 @@ export default function AdminPage() {
                     <Image src={optimizeCloudinaryUrl(p.image)} alt={p.name} fill sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw" className="object-cover" />
                   </div>
                   <div className="p-4">
-                     <h3 className="font-bold text-lg text-white">{p.name}</h3>
-                    <p className="text-gold font-mono">{goldRate ? `₹${(() => {
-                      const weight = Number(p.weight || 0);
-                      const making = Number(p.making || 0);
-                      const carat = Number(p.carat || 22);
-                      const rate = Number(goldRate || 0);
-                      const purity = carat / 24;
-                      const goldPrice = weight * rate * purity;
-                      const makingCharge = goldPrice * (making / 100);
-                      const subtotal = goldPrice + makingCharge;
-                      const gst = subtotal * 0.03;
-                      return Math.round(subtotal + gst);
-                    })().toLocaleString("en-IN")}` : "Set gold rate first"}</p>
-                     <p className="text-sm text-gray-400">{p.carat || 22}K Gold</p>
+                     <div className="flex items-center justify-between gap-2 mb-1">
+                       <h3 className="font-bold text-lg text-white truncate">{p.name}</h3>
+                       {p.jewelleryCardProductId && (
+                         <span className="text-[10px] bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/40 px-2 py-0.5 rounded-full shrink-0">
+                           JC #{p.jewelleryCardProductId}
+                         </span>
+                       )}
+                     </div>
+
+                     {p.weight && Number(p.weight) > 0 ? (
+                       <>
+                         <p className="text-gold font-mono">{goldRate ? `₹${(() => {
+                           const weight = Number(p.weight || 0);
+                           const making = Number(p.making || 0);
+                           const carat = Number(p.carat || 22);
+                           const rate = Number(goldRate || 0);
+                           const purity = carat / 24;
+                           const goldPrice = weight * rate * purity;
+                           const makingCharge = goldPrice * (making / 100);
+                           const subtotal = goldPrice + makingCharge;
+                           const gst = subtotal * 0.03;
+                           return Math.round(subtotal + gst);
+                         })().toLocaleString("en-IN")}` : "Set gold rate first"}</p>
+                         <p className="text-sm text-gray-400">{p.weight}g • {p.carat || 22}K Gold</p>
+                       </>
+                     ) : (
+                       <>
+                         <p className="text-yellow-400 text-sm font-semibold">Weight: Pending</p>
+                         <p className="text-xs text-gray-400">Click &quot;Edit&quot; to set custom weight &amp; purity</p>
+                       </>
+                     )}
                       <div className="flex flex-wrap gap-2 mt-4">
                         <button onClick={() => handleEdit(p)} className="flex-1 bg-gold text-black py-2 rounded text-sm font-bold hover:bg-[#B8952A] transition">
                           Edit

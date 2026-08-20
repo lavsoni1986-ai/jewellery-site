@@ -13,25 +13,27 @@ import { useApp } from "@/context/AppContext";
 interface Product {
   id: string;
   name: string;
-  weight: number;
-  making: number;
+  weight?: number;
+  making?: number;
   image: string;
   stock?: number;
   category?: string;
   carat?: number;
+  jewelleryCardProductId?: string;
+  source?: string;
 }
 
 const CATEGORY_MAP: { [key: string]: string } = {
   // Rings
-  "ring": "ring", "rings": "ring", "anguthi": "ring", "अंगूठी": "ring", "chhalla": "ring", "finger ring": "ring", "engagement ring": "ring",
+  "ring": "ring", "rings": "ring", "anguthi": "ring", "अंगूठी": "ring", "chhalla": "ring", "finger ring": "ring", "engagement ring": "ring", "gents ring": "ring",
   // Bangles
-  "bangle": "bangle", "bangles": "bangle", "kangan": "bangle", "kangal": "bangle", "bala": "bangle", "chuda": "bangle", "चूड़ी": "bangle", "कंगन": "bangle", "bracelet": "bangle", "payal": "bangle", "anklet": "bangle",
+  "bangle": "bangle", "bangles": "bangle", "kangan": "bangle", "kangal": "bangle", "bala": "bangle", "chuda": "bangle", "चूड़ी": "bangle", "कंगन": "bangle", "bracelet": "bracelet", "ladies bracelet": "bracelet", "gents bracelet": "bracelet", "payal": "bangle", "anklet": "bangle",
   // Earrings
   "earring": "earring", "earrings": "earring", "jhumka": "earring", "tops": "earring", "झुमका": "earring", "studs": "earring", "hoops": "earring",
   // Necklaces
-  "necklace": "necklace", "necklaces": "necklace", "haar": "necklace", "set": "necklace", "हार": "necklace", "mala": "necklace", "chain": "necklace", "pendant": "necklace", "locket": "necklace", "choker": "necklace",
+  "necklace": "necklace", "necklaces": "necklace", "haar": "necklace", "set": "necklace", "हार": "necklace", "mala": "necklace", "chain": "necklace", "gents chain": "necklace", "pendant": "necklace", "locket": "necklace", "choker": "necklace",
   // Additional Categories for Future-Proofing
-  "nose ring": "nose ring", "mangalsutra": "mangalsutra"
+  "nose ring": "nose-ring", "nose-ring": "nose-ring", "mangalsutra": "mangalsutra"
 };
 
 // Normalization function: किसी भी शब्द को 'Sovereign Key' में बदलेगा, अब कैपिटलाइजेशन और स्पेसल कैरेक्टर्स को भी हैंडल करें
@@ -57,8 +59,6 @@ export default function JewelleryClient() {
   const [purityFilter, setPurityFilter] = useState("all");
   const [weightFilter, setWeightFilter] = useState("all");
   const [designFilter, setDesignFilter] = useState("all");
-
-
 
   useEffect(() => {
     const fetchData = async () => {
@@ -102,8 +102,6 @@ export default function JewelleryClient() {
     return () => window.removeEventListener("openProduct", handler);
   }, []);
 
-
-
   // Update live status
   useEffect(() => {
     const updateStatus = () => {
@@ -133,22 +131,24 @@ export default function JewelleryClient() {
 
       // B. शुद्धता (Purity) फ़िल्टर
       const productCarat = p.carat || 22;
-      const purityMatch = purityFilter === "all" || productCarat.toString() === purityFilter;
+      const purityMatch = purityFilter === "all" || (p.carat ? productCarat.toString() === purityFilter : true);
 
       // C. बजट (Budget) फ़िल्टर
-      const goldValue = p.weight * (goldRate || 0);
-      const price = Math.round((goldValue * (1 + p.making / 100)) * 1.03);
+      const hasWeight = typeof p.weight === "number" && p.weight > 0;
+      const goldValue = hasWeight ? p.weight! * (goldRate || 0) : 0;
+      const makingPercent = typeof p.making === "number" ? p.making : 0;
+      const price = hasWeight ? Math.round((goldValue * (1 + makingPercent / 100)) * 1.03) : 0;
 
       let budgetMatch = true;
-      if (budgetFilter === "under50k") budgetMatch = price < 50000;
-      else if (budgetFilter === "50k-1.5l") budgetMatch = price >= 50000 && price <= 150000;
-      else if (budgetFilter === "above1.5l") budgetMatch = price > 150000;
+      if (budgetFilter === "under50k") budgetMatch = hasWeight ? price < 50000 : false;
+      else if (budgetFilter === "50k-1.5l") budgetMatch = hasWeight ? (price >= 50000 && price <= 150000) : false;
+      else if (budgetFilter === "above1.5l") budgetMatch = hasWeight ? price > 150000 : false;
 
       // D. वजन (Weight) फ़िल्टर (नया)
       let weightMatch = true;
-      if (weightFilter === "light") weightMatch = p.weight < 5;
-      else if (weightFilter === "medium") weightMatch = p.weight >= 5 && p.weight <= 15;
-      else if (weightFilter === "heavy") weightMatch = p.weight > 15;
+      if (weightFilter === "light") weightMatch = hasWeight && p.weight! < 5;
+      else if (weightFilter === "medium") weightMatch = hasWeight && p.weight! >= 5 && p.weight! <= 15;
+      else if (weightFilter === "heavy") weightMatch = hasWeight && p.weight! > 15;
 
       // E. डिजाइन (Design) फ़िल्टर (नया)
       const designMatch = designFilter === "all" || (p.category && p.category.toLowerCase() === designFilter.toLowerCase());
@@ -168,13 +168,14 @@ export default function JewelleryClient() {
   };
 
   const getSimilarProducts = (current: Product) => {
-    if (!goldRate) return [];
-    const currentPrice = Math.round((current.weight * goldRate) * (1 + current.making / 100));
+    if (!goldRate || !current.weight) return [];
+    const currentPrice = Math.round((current.weight * goldRate) * (1 + (current.making || 0) / 100));
     return products.filter(p =>
       p.id !== current.id &&
       p.category === current.category &&
-      Math.abs(Math.round((p.weight * goldRate) * (1 + p.making / 100)) - currentPrice) < 10000
-    ).slice(0, 3); // limit to 3
+      p.weight &&
+      Math.abs(Math.round((p.weight * goldRate) * (1 + (p.making || 0) / 100)) - currentPrice) < 10000
+    ).slice(0, 3);
   };
 
   const handleProductClick = (productId: string) => {
@@ -184,26 +185,23 @@ export default function JewelleryClient() {
   };
 
   const generateWhatsAppMessage = (product: Product, goldRate: number) => {
-    const goldValue = product.weight * goldRate;
-    const makingCharges = goldValue * (product.making / 100);
+    const hasWeight = typeof product.weight === "number" && product.weight > 0;
+    const goldValue = hasWeight ? product.weight! * goldRate : 0;
+    const makingPercent = typeof product.making === "number" ? product.making : 0;
+    const makingCharges = goldValue * (makingPercent / 100);
     const subtotal = goldValue + makingCharges;
     const gst = subtotal * 0.03;
     const finalPrice = Math.round(subtotal + gst);
-    const carat = product.carat || 22;
+    const carat = product.carat;
     const status = getGoldStatus();
     const statusLabel = status.label;
 
     return `Hi, mujhe ${product.name} pasand aaya.
 
 Details:
-• Weight: ${product.weight}g
-• ${carat}K Gold
-• Making: ${product.making}%
-• Current Price: ₹${finalPrice}
-
-Gold Rate: ₹${goldRate}/gm (${statusLabel})
-
-Kya aaj ka final best price mil sakta hai?
+${hasWeight ? `• Weight: ${product.weight}g\n` : ""}${carat ? `• ${carat}K Gold\n` : ""}${product.making ? `• Making: ${product.making}%\n` : ""}${finalPrice > 0 ? `• Estimated Price: ₹${finalPrice}\n` : ""}
+${goldRate > 0 ? `Gold Rate: ₹${goldRate}/gm (${statusLabel})\n` : ""}
+Kya iska final best price aur availability mil sakti hai?
 Agar similar designs available ho to wo bhi share karein.`;
   };
 
@@ -436,11 +434,13 @@ Agar similar designs available ho to wo bhi share karein.`;
         {!loading && !error && filteredProducts.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10 mt-8">
             {filteredProducts.map((product) => {
-              const goldValue = product.weight * (goldRate || 0);
-              const makingCharges = goldValue * (product.making / 100);
+              const hasWeight = typeof product.weight === "number" && product.weight > 0;
+              const goldValue = hasWeight ? product.weight! * (goldRate || 0) : 0;
+              const makingPercent = typeof product.making === "number" ? product.making : 0;
+              const makingCharges = goldValue * (makingPercent / 100);
               const subtotal = goldValue + makingCharges;
               const gst = subtotal * 0.03;
-              const price = Math.round(subtotal + gst);
+              const price = hasWeight ? Math.round(subtotal + gst) : 0;
               return (
                 <div key={product.id} className="group product-card glass-card rounded-3xl overflow-hidden shadow-depth hover:shadow-depth-xl h-full flex flex-col">
                   <div className="overflow-hidden image-zoom" onClick={() => handleProductClick(product.id)}>
@@ -460,16 +460,22 @@ Agar similar designs available ho to wo bhi share karein.`;
                     <div>
                       <h3 className="text-[#1a1a1a] text-lg font-medium tracking-wide truncate">{product.name}</h3>
                       <div className="flex items-center gap-2">
-                        <p className="text-[#65000b] text-2xl font-bold tracking-wide">₹{price.toLocaleString("en-IN")}</p>
-                        <button
-                          onClick={() => setSelectedProduct(product)}
-                          className="text-[#D4AF37] hover:text-[#B8860B] transition-colors"
-                          title="View price breakdown"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                        </button>
+                        {price > 0 ? (
+                          <>
+                            <p className="text-[#65000b] text-2xl font-bold tracking-wide">₹{price.toLocaleString("en-IN")}</p>
+                            <button
+                              onClick={() => setSelectedProduct(product)}
+                              className="text-[#D4AF37] hover:text-[#B8860B] transition-colors"
+                              title="View price breakdown"
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </>
+                        ) : (
+                          <p className="text-[#65000b] text-xl font-bold tracking-wide">Price on Enquiry</p>
+                        )}
                       </div>
                       <p className="text-green-600 text-xs font-medium mt-2">
                         <span className="bg-green-100/80 px-3 py-1.5 rounded-full">✔ BIS Hallmarked</span>
@@ -509,7 +515,8 @@ Agar similar designs available ho to wo bhi share karein.`;
                 .filter(p => p.category === userInterest)
                 .slice(0, 3)
                 .map((product) => {
-                  const price = Math.round((product.weight * (goldRate || 0)) * (1 + product.making / 100));
+                  const hasWeight = typeof product.weight === "number" && product.weight > 0;
+                  const price = hasWeight ? Math.round((product.weight! * (goldRate || 0)) * (1 + (product.making || 0) / 100)) : 0;
                   return (
                     <div key={product.id} className="group product-card glass-card rounded-2xl overflow-hidden shadow-depth hover:shadow-depth-lg" onClick={() => handleProductClick(product.id)}>
                       <div className="overflow-hidden">
@@ -525,7 +532,9 @@ Agar similar designs available ho to wo bhi share karein.`;
                       </div>
                       <div className="p-4">
                         <h3 className="text-[#1a1a1a] text-sm font-medium truncate">{product.name}</h3>
-                        <p className="text-[#65000b] text-lg font-bold">₹{price.toLocaleString("en-IN")}</p>
+                        <p className="text-[#65000b] text-lg font-bold">
+                          {price > 0 ? `₹${price.toLocaleString("en-IN")}` : "Price on Enquiry"}
+                        </p>
                       </div>
                     </div>
                   );
@@ -545,7 +554,8 @@ Agar similar designs available ho to wo bhi share karein.`;
                 .map(([productId]) => {
                   const product = products.find(p => p.id === productId);
                   if (!product) return null;
-                  const price = Math.round((product.weight * (goldRate || 0)) * (1 + product.making / 100));
+                  const hasWeight = typeof product.weight === "number" && product.weight > 0;
+                  const price = hasWeight ? Math.round((product.weight! * (goldRate || 0)) * (1 + (product.making || 0) / 100)) : 0;
                   return (
                     <div key={product.id} className="group product-card glass-card rounded-2xl overflow-hidden shadow-depth hover:shadow-depth-lg">
                       <div className="overflow-hidden">
@@ -561,7 +571,9 @@ Agar similar designs available ho to wo bhi share karein.`;
                       </div>
                       <div className="p-4">
                         <h3 className="text-[#1a1a1a] text-sm font-medium truncate">{product.name}</h3>
-                        <p className="text-[#65000b] text-lg font-bold">₹{price.toLocaleString("en-IN")}</p>
+                        <p className="text-[#65000b] text-lg font-bold">
+                          {price > 0 ? `₹${price.toLocaleString("en-IN")}` : "Price on Enquiry"}
+                        </p>
                       </div>
                     </div>
                   );
@@ -666,8 +678,22 @@ Agar similar designs available ho to wo bhi share karein.`;
                  </h3>
                  <div className="space-y-3">
                    {(() => {
-                     const goldValue = selectedProduct.weight * goldRate;
-                     const makingCharges = goldValue * (selectedProduct.making / 100);
+                     const hasWeight = typeof selectedProduct.weight === "number" && selectedProduct.weight > 0;
+                     if (!hasWeight) {
+                       return (
+                         <div className="bg-[#65000b]/10 p-5 rounded-2xl text-center">
+                           <span className="text-[#65000b] text-sm font-medium block mb-1">Customised Weight & Price</span>
+                           <span className="text-2xl font-bold text-[#65000b]">Price on Enquiry</span>
+                           <p className="text-xs text-gray-600 mt-2">
+                             This jewellery piece can be customized to your desired weight and purity. Contact us on WhatsApp for live pricing based on current gold rates.
+                           </p>
+                         </div>
+                       );
+                     }
+
+                     const goldValue = selectedProduct.weight! * goldRate;
+                     const makingPercent = typeof selectedProduct.making === "number" ? selectedProduct.making : 0;
+                     const makingCharges = goldValue * (makingPercent / 100);
                      const subtotal = goldValue + makingCharges;
                      const gst = subtotal * 0.03;
                      const total = Math.round(subtotal + gst);
@@ -678,7 +704,7 @@ Agar similar designs available ho to wo bhi share karein.`;
                            <span className="font-bold text-[#1a1a1a]">₹{goldValue.toLocaleString("en-IN")}</span>
                          </div>
                          <div className="flex justify-between items-center">
-                           <span className="text-gray-600">Making ({selectedProduct.making}%)</span>
+                           <span className="text-gray-600">Making ({makingPercent}%)</span>
                            <span className="font-bold text-[#1a1a1a]">₹{makingCharges.toLocaleString("en-IN")}</span>
                          </div>
                          <div className="flex justify-between items-center">
@@ -690,7 +716,7 @@ Agar similar designs available ho to wo bhi share karein.`;
                            <span className="text-2xl font-bold text-[#65000b]">₹{total.toLocaleString("en-IN")}</span>
                          </div>
                          <div className="text-sm text-gray-600 mt-2 italic">
-                           🤖 AI Note: Current pricing is {getGoldStatus().label.toLowerCase()} based on today's gold rate.
+                           🤖 AI Note: Current pricing is {getGoldStatus().label.toLowerCase()} based on today&apos;s gold rate.
                          </div>
                          <div className="text-xs text-gray-500 mt-1">
                            This price is calculated based on current gold rate and market conditions.
@@ -699,12 +725,6 @@ Agar similar designs available ho to wo bhi share karein.`;
                            <p className="text-sm font-medium text-[#65000b]">💡 AI Suggestion:</p>
                            <p className="text-xs text-gray-600 mt-1">This design offers best value in its price range with excellent making quality.</p>
                          </div>
-
-                         {getGoldStatus().label.includes('High volatility') && (
-                           <div className="text-sm text-red-600 mt-2 flex items-center gap-1">
-                             ⚠ Gold prices are fluctuating today
-                           </div>
-                         )}
                        </>
                      );
                    })()}
@@ -719,7 +739,8 @@ Agar similar designs available ho to wo bhi share karein.`;
                    </h3>
                    <div className="grid grid-cols-1 gap-3">
                      {getSimilarProducts(selectedProduct).map((sim) => {
-                       const simPrice = Math.round((sim.weight * goldRate) * (1 + sim.making / 100));
+                       const hasWeight = typeof sim.weight === "number" && sim.weight > 0;
+                       const simPrice = hasWeight ? Math.round((sim.weight! * goldRate) * (1 + (sim.making || 0) / 100)) : 0;
                        return (
                           <div key={sim.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition" onClick={() => setSelectedProduct(sim)}>
                              <Image
