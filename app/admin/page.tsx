@@ -229,19 +229,29 @@ export default function AdminPage() {
   };
 
   const handleAddCategory = async () => {
-    if (!newCategory) return alert("Enter category name");
+    const cleanName = newCategory.trim();
+    if (!cleanName) return alert("Enter category name");
+
+    const cleanSlug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+    // Prevent duplicate category slug
+    const duplicate = categories.find(c => c.slug === cleanSlug || c.name.toLowerCase() === cleanName.toLowerCase());
+    if (duplicate) {
+      return alert(`Category "${cleanName}" already exists!`);
+    }
 
     try {
       await addDoc(collection(db, "categories"), {
-        name: newCategory,
-        slug: newCategory.toLowerCase().replace(/\s+/g, "-"),
+        name: cleanName,
+        slug: cleanSlug,
+        createdAt: Date.now(),
       });
 
       alert("Category added!");
 
       setNewCategory("");
       fetchCategories(); // 🔥 तुरंत dropdown update होगा
-    } catch (err) {
+    } catch {
       alert("Error adding category");
     }
   };

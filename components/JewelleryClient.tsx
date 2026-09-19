@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PHONE } from "@/lib/config";
@@ -43,12 +44,15 @@ const getSovereignKey = (term: string) => {
 };
 
 export default function JewelleryClient() {
-  const { goldRate, goldRateTimestamp } = useApp();
+  const { goldRate, goldRateTimestamp, categories: firestoreCategories } = useApp();
+  const searchParams = useSearchParams();
+  const urlCategory = searchParams?.get("category");
+
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState(urlCategory || "all");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [userInterest, setUserInterest] = useState<string | null>(null);
   const [productClicks, setProductClicks] = useState<{[key: string]: number}>({});
@@ -85,6 +89,13 @@ export default function JewelleryClient() {
     const savedClicks = localStorage.getItem("productClicks");
     if (savedClicks) setProductClicks(JSON.parse(savedClicks));
   }, []);
+
+  // Sync category filter from URL query parameter (?category=...)
+  useEffect(() => {
+    if (urlCategory) {
+      setFilter(urlCategory);
+    }
+  }, [urlCategory]);
 
   // Sync lastUpdate from context
   useEffect(() => {
@@ -125,9 +136,19 @@ export default function JewelleryClient() {
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      // A. कैटेगरी फ़िल्टर (मौजूदा लॉजिक)
+      // A. कैटेगरी फ़िल्टर (Dynamic + Sovereign Key Matching)
       const dbCat = getSovereignKey(p.category || "");
-      const categoryMatch = filter === "all" || dbCat === getSovereignKey(filter);
+      const filterKey = getSovereignKey(filter);
+      const normProductCat = (p.category || "").toLowerCase().trim();
+      const normFilter = filter.toLowerCase().trim();
+      const cleanProductCat = normProductCat.replace(/[^a-z0-9]/g, "");
+      const cleanFilter = normFilter.replace(/[^a-z0-9]/g, "");
+
+      const categoryMatch =
+        filter === "all" ||
+        normProductCat === normFilter ||
+        dbCat === filterKey ||
+        (cleanProductCat.length > 0 && cleanProductCat === cleanFilter);
 
       // B. शुद्धता (Purity) फ़िल्टर
       const productCarat = p.carat || 22;
@@ -286,12 +307,11 @@ Agar similar designs available ho to wo bhi share karein.`;
               className="category-btn"
             >
               <option value="all">All Collection</option>
-              <option value="ring">Rings (अंगूठी)</option>
-              <option value="necklace">Necklace (हार)</option>
-              <option value="bangle">Bangles (कंगन/चूड़ी)</option>
-              <option value="earring">Earrings (झुमका)</option>
-              <option value="bracelet">Bracelets</option>
-              <option value="anklet">Anklets</option>
+              {firestoreCategories.map((cat) => (
+                <option key={cat.id || cat.slug} value={cat.slug}>
+                  {cat.name}
+                </option>
+              ))}
             </select>
             <input
               type="text"
