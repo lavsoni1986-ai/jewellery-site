@@ -16,7 +16,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { optimizeCloudinaryUrl, enhanceJewelleryImage, enhanceJewelleryImageBasic } from "@/lib/utils";
-import { Lock, LogOut, Upload } from "lucide-react";
+import { Lock, LogOut, Upload, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
 
 interface Product {
@@ -39,6 +39,7 @@ interface Category {
   id: string;
   name: string;
   slug: string;
+  image?: string;
 }
 
 export default function AdminPage() {
@@ -54,6 +55,9 @@ export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategory, setNewCategory] = useState("");
+  const [categoryFile, setCategoryFile] = useState<File | null>(null);
+  const [categoryPreview, setCategoryPreview] = useState<string | null>(null);
+  const [categoryUploading, setCategoryUploading] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -228,6 +232,35 @@ export default function AdminPage() {
     }
   };
 
+  const validateImageFile = (file: File): boolean => {
+    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!validTypes.includes(file.type.toLowerCase())) {
+      alert("Please select a valid JPG, PNG or WEBP image. / कृपया मान्य JPG, PNG या WEBP इमेज चुनें।");
+      return false;
+    }
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      alert("File size exceeds 5 MB. Please choose a smaller image under 5 MB. / फाइल साइज़ 5 MB से कम होना चाहिए।");
+      return false;
+    }
+    return true;
+  };
+
+  const handleCategoryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      if (!validateImageFile(selectedFile)) {
+        e.target.value = "";
+        return;
+      }
+      if (categoryPreview) {
+        URL.revokeObjectURL(categoryPreview);
+      }
+      setCategoryFile(selectedFile);
+      setCategoryPreview(URL.createObjectURL(selectedFile));
+    }
+  };
+
   const handleAddCategory = async () => {
     const cleanName = newCategory.trim();
     if (!cleanName) return alert("Enter category name");
@@ -240,19 +273,68 @@ export default function AdminPage() {
       return alert(`Category "${cleanName}" already exists!`);
     }
 
+    setCategoryUploading(true);
     try {
-      await addDoc(collection(db, "categories"), {
+      let imageUrl = "";
+      if (categoryFile) {
+        imageUrl = await uploadImage(categoryFile);
+      }
+
+      const docPayload: { name: string; slug: string; image?: string; createdAt: number } = {
         name: cleanName,
         slug: cleanSlug,
         createdAt: Date.now(),
-      });
+      };
 
-      alert("Category added!");
+      if (imageUrl) {
+        docPayload.image = imageUrl;
+      }
 
+      await addDoc(collection(db, "categories"), docPayload);
+
+      alert("Category added successfully!");
+
+      if (categoryPreview) {
+        URL.revokeObjectURL(categoryPreview);
+      }
       setNewCategory("");
+      setCategoryFile(null);
+      setCategoryPreview(null);
       fetchCategories(); // 🔥 तुरंत dropdown update होगा
-    } catch {
-      alert("Error adding category");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error adding category";
+      alert("Failed to add category: " + msg);
+    } finally {
+      setCategoryUploading(false);
+    }
+  };
+
+  const handleDeleteCategory = async (catId: string, catName: string) => {
+    if (confirm(`Are you sure you want to delete category "${catName}"?`)) {
+      try {
+        await deleteDoc(doc(db, "categories", catId));
+        alert("Category deleted!");
+        fetchCategories();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to delete";
+        alert("Error deleting category: " + msg);
+      }
+    }
+  };
+
+  const handleUpdateCategoryImage = async (catId: string, selectedFile: File) => {
+    if (!validateImageFile(selectedFile)) return;
+    try {
+      setCategoryUploading(true);
+      const imageUrl = await uploadImage(selectedFile);
+      await updateDoc(doc(db, "categories", catId), { image: imageUrl });
+      alert("Category image updated successfully!");
+      fetchCategories();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update image";
+      alert("Error: " + msg);
+    } finally {
+      setCategoryUploading(false);
     }
   };
 
@@ -772,23 +854,117 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Add Category */}
+          {/* Add Category & Management */}
           <div className="bg-[#111] border border-[#333] rounded-2xl p-6">
-            <h2 className="text-xl font-semibold text-gold mb-4">Add Category</h2>
-            <div className="flex gap-3">
+            <h2 className="text-xl font-semibold text-gold mb-4">Category Management ({categories.length})</h2>
+            
+            {/* Add Category Form */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <input
                 type="text"
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
-                placeholder="Enter category name (e.g. Bracelet)"
-                className="flex-1 p-3 bg-black border border-[#333] rounded-lg focus:border-gold outline-none"
+                placeholder="Enter category name (e.g. Diamond Rings)"
+                className="p-3 bg-black border border-[#333] rounded-lg focus:border-gold outline-none text-white"
               />
+
+              {/* Optional Category Image */}
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                  onChange={handleCategoryFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  id="category-file-upload"
+                />
+                <label
+                  htmlFor="category-file-upload"
+                  className="block w-full p-3 bg-black border border-[#333] rounded-lg cursor-pointer hover:bg-[#1a1a1a] transition flex items-center justify-center gap-2 text-sm text-gray-300"
+                >
+                  <Upload size={16} />
+                  {categoryFile ? categoryFile.name : "Category Image (Optional)"}
+                </label>
+              </div>
+
               <button
                 onClick={handleAddCategory}
-                className="bg-gold text-black px-6 py-3 rounded-lg font-bold hover:bg-[#B8952A]"
+                disabled={categoryUploading}
+                className="bg-gold text-black px-6 py-3 rounded-lg font-bold hover:bg-[#B8952A] transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Add
+                {categoryUploading ? "Uploading..." : "Add Category"}
               </button>
+            </div>
+
+            {/* Category Image Preview */}
+            {categoryPreview && (
+              <div className="mb-6 flex items-center gap-4 p-3 bg-black/40 border border-[#333] rounded-xl w-fit">
+                <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-gold/40">
+                  <Image src={categoryPreview} alt="Preview" fill className="object-cover" />
+                </div>
+                <div>
+                  <p className="text-xs text-green-400 font-medium">Ready to upload</p>
+                  <button
+                    onClick={() => {
+                      if (categoryPreview) URL.revokeObjectURL(categoryPreview);
+                      setCategoryFile(null);
+                      setCategoryPreview(null);
+                    }}
+                    className="text-xs text-red-400 hover:underline mt-1"
+                  >
+                    Remove Image
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Existing Categories List */}
+            <div className="border-t border-[#222] pt-4">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Existing Categories</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-64 overflow-y-auto pr-1">
+                {categories.map((cat) => (
+                  <div key={cat.id || cat.slug} className="flex items-center justify-between p-2.5 bg-[#181818] border border-[#2a2a2a] rounded-xl">
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      {cat.image ? (
+                        <div className="relative w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 border border-gold/30">
+                          <Image src={cat.image} alt={cat.name} fill className="object-cover" />
+                        </div>
+                      ) : (
+                        <div className="w-9 h-9 rounded-lg bg-[#2a2a2a] flex-shrink-0 flex items-center justify-center text-[10px] text-gray-500 font-bold border border-gray-700">
+                          AUTO
+                        </div>
+                      )}
+                      <div className="overflow-hidden">
+                        <p className="text-sm font-medium text-white truncate">{cat.name}</p>
+                        <p className="text-[10px] text-gray-500 truncate">/{cat.slug}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {/* Change Image Button */}
+                      <label className="p-1.5 hover:bg-[#2a2a2a] rounded-lg cursor-pointer text-gray-400 hover:text-gold transition" title="Change Image">
+                        <Upload size={14} />
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/jpg"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleUpdateCategoryImage(cat.id, file);
+                          }}
+                        />
+                      </label>
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                        className="p-1.5 hover:bg-[#2a2a2a] rounded-lg text-gray-400 hover:text-red-400 transition"
+                        title="Delete Category"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 

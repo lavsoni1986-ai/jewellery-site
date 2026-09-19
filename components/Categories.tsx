@@ -96,6 +96,13 @@ export default function Categories() {
                       className="h-[260px] md:h-[300px] w-full object-cover group-hover:scale-105 transition-transform duration-500"
                       alt={category.name}
                       loading="lazy"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        const fallback = getCategoryFallbackImage(category.name || category.slug);
+                        if (target.src !== fallback) {
+                          target.src = fallback;
+                        }
+                      }}
                     />
                     <div className="category-text absolute bottom-4 left-4 z-20 font-serif text-xl md:text-2xl text-white font-medium drop-shadow-md">
                       {category.name}
