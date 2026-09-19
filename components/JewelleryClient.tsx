@@ -10,6 +10,7 @@ import { PHONE } from "@/lib/config";
 import { X, MessageCircle } from "lucide-react";
 import { optimizeCloudinaryUrl, enhanceJewelleryImage } from "@/lib/utils";
 import { useApp } from "@/context/AppContext";
+import { calculatePrice, calculatePriceBreakdown } from "@/lib/calcPrice";
 
 interface Product {
   id: string;
@@ -155,10 +156,8 @@ export default function JewelleryClient() {
       const purityMatch = purityFilter === "all" || (p.carat ? productCarat.toString() === purityFilter : true);
 
       // C. बजट (Budget) फ़िल्टर
+      const price = calculatePrice(p, goldRate);
       const hasWeight = typeof p.weight === "number" && p.weight > 0;
-      const goldValue = hasWeight ? p.weight! * (goldRate || 0) : 0;
-      const makingPercent = typeof p.making === "number" ? p.making : 0;
-      const price = hasWeight ? Math.round((goldValue * (1 + makingPercent / 100)) * 1.03) : 0;
 
       let budgetMatch = true;
       if (budgetFilter === "under50k") budgetMatch = hasWeight ? price < 50000 : false;
@@ -199,12 +198,12 @@ export default function JewelleryClient() {
 
   const getSimilarProducts = (current: Product) => {
     if (!goldRate || !current.weight) return [];
-    const currentPrice = Math.round((current.weight * goldRate) * (1 + (current.making || 0) / 100));
+    const currentPrice = calculatePrice(current, goldRate);
     return products.filter(p =>
       p.id !== current.id &&
       p.category === current.category &&
       p.weight &&
-      Math.abs(Math.round((p.weight * goldRate) * (1 + (p.making || 0) / 100)) - currentPrice) < 10000
+      Math.abs(calculatePrice(p, goldRate) - currentPrice) < 10000
     ).slice(0, 3);
   };
 
@@ -215,22 +214,15 @@ export default function JewelleryClient() {
   };
 
   const generateWhatsAppMessage = (product: Product, goldRate: number) => {
-    const hasWeight = typeof product.weight === "number" && product.weight > 0;
-    const goldValue = hasWeight ? product.weight! * goldRate : 0;
-    const makingPercent = typeof product.making === "number" ? product.making : 0;
-    const makingCharges = goldValue * (makingPercent / 100);
-    const subtotal = goldValue + makingCharges;
-    const gst = subtotal * 0.03;
-    const finalPrice = Math.round(subtotal + gst);
-    const carat = product.carat;
+    const breakdown = calculatePriceBreakdown(product, goldRate);
     const status = getGoldStatus();
     const statusLabel = status.label;
 
     return `Hi, mujhe ${product.name} pasand aaya.
 
 Details:
-${hasWeight ? `• Weight: ${product.weight}g\n` : ""}${carat ? `• ${carat}K Gold\n` : ""}${product.making ? `• Making: ${product.making}%\n` : ""}${finalPrice > 0 ? `• Estimated Price: ₹${finalPrice}\n` : ""}
-${goldRate > 0 ? `Gold Rate: ₹${goldRate}/gm (${statusLabel})\n` : ""}
+${breakdown.hasWeight ? `• Weight: ${product.weight}g\n` : ""}${breakdown.carat ? `• ${breakdown.carat}K Gold\n` : ""}${product.making ? `• Making: ${product.making}%\n` : ""}${breakdown.finalPrice > 0 ? `• Estimated Price: ₹${breakdown.finalPrice.toLocaleString("en-IN")}\n` : ""}
+${goldRate > 0 ? `• ${breakdown.carat}K Gold Rate: ₹${breakdown.effectiveGoldRate.toLocaleString("en-IN")}/gm (${statusLabel})\n` : ""}
 Kya iska final best price aur availability mil sakti hai?
 Agar similar designs available ho to wo bhi share karein.`;
   };
@@ -240,7 +232,7 @@ Agar similar designs available ho to wo bhi share karein.`;
       {/* GOLD RATE BAR */}
       {goldRate > 0 && (
         <div className="bg-black text-[#D4AF37]/90 text-center py-1 border-b border-[#D4AF37]/10 fixed top-0 w-full z-50 gold-strip flex justify-center items-center gap-4">
-          <span>{liveStatus} • Gold: ₹{goldRate.toLocaleString("en-IN")}/gm • {timeAgo}</span>
+          <span>{liveStatus} • Gold (24K): ₹{goldRate.toLocaleString("en-IN")}/gm • {timeAgo}</span>
           <a
             href={`https://wa.me/${PHONE}?text=Hi, I saw the current gold rate ₹${goldRate.toLocaleString("en-IN")}/gm. Can we discuss booking at this price?`}
             target="_blank"
@@ -464,13 +456,7 @@ Agar similar designs available ho to wo bhi share karein.`;
         {!loading && !error && filteredProducts.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10 mt-8">
             {filteredProducts.map((product) => {
-              const hasWeight = typeof product.weight === "number" && product.weight > 0;
-              const goldValue = hasWeight ? product.weight! * (goldRate || 0) : 0;
-              const makingPercent = typeof product.making === "number" ? product.making : 0;
-              const makingCharges = goldValue * (makingPercent / 100);
-              const subtotal = goldValue + makingCharges;
-              const gst = subtotal * 0.03;
-              const price = hasWeight ? Math.round(subtotal + gst) : 0;
+              const price = calculatePrice(product, goldRate);
               return (
                 <div key={product.id} className="group product-card glass-card rounded-3xl overflow-hidden shadow-depth hover:shadow-depth-xl h-full flex flex-col">
                   <div className="overflow-hidden image-zoom" onClick={() => handleProductClick(product.id)}>
@@ -708,8 +694,8 @@ Agar similar designs available ho to wo bhi share karein.`;
                  </h3>
                  <div className="space-y-3">
                    {(() => {
-                     const hasWeight = typeof selectedProduct.weight === "number" && selectedProduct.weight > 0;
-                     if (!hasWeight) {
+                     const breakdown = calculatePriceBreakdown(selectedProduct, goldRate);
+                     if (!breakdown.hasWeight) {
                        return (
                          <div className="bg-[#65000b]/10 p-5 rounded-2xl text-center">
                            <span className="text-[#65000b] text-sm font-medium block mb-1">Customised Weight & Price</span>
@@ -721,32 +707,28 @@ Agar similar designs available ho to wo bhi share karein.`;
                        );
                      }
 
-                     const goldValue = selectedProduct.weight! * goldRate;
-                     const makingPercent = typeof selectedProduct.making === "number" ? selectedProduct.making : 0;
-                     const makingCharges = goldValue * (makingPercent / 100);
-                     const subtotal = goldValue + makingCharges;
-                     const gst = subtotal * 0.03;
-                     const total = Math.round(subtotal + gst);
                      return (
                        <>
                          <div className="flex justify-between items-center">
-                           <span className="text-gray-600">Gold Value</span>
-                           <span className="font-bold text-[#1a1a1a]">₹{goldValue.toLocaleString("en-IN")}</span>
+                           <span className="text-gray-600">
+                             Gold Value ({breakdown.weight}g @ ₹{breakdown.effectiveGoldRate.toLocaleString("en-IN")}/g • {breakdown.carat}K)
+                           </span>
+                           <span className="font-bold text-[#1a1a1a]">₹{breakdown.goldValue.toLocaleString("en-IN")}</span>
                          </div>
                          <div className="flex justify-between items-center">
-                           <span className="text-gray-600">Making ({makingPercent}%)</span>
-                           <span className="font-bold text-[#1a1a1a]">₹{makingCharges.toLocaleString("en-IN")}</span>
+                           <span className="text-gray-600">Making ({breakdown.makingPercent}%)</span>
+                           <span className="font-bold text-[#1a1a1a]">₹{breakdown.makingCharge.toLocaleString("en-IN")}</span>
                          </div>
                          <div className="flex justify-between items-center">
                            <span className="text-gray-600">GST (3%)</span>
-                           <span className="font-bold text-[#1a1a1a]">₹{gst.toLocaleString("en-IN")}</span>
+                           <span className="font-bold text-[#1a1a1a]">₹{breakdown.gst.toLocaleString("en-IN")}</span>
                          </div>
                          <div className="flex justify-between items-center bg-[#65000b]/10 p-4 rounded-xl mt-4">
                            <span className="text-[#65000b] font-medium">Total Price</span>
-                           <span className="text-2xl font-bold text-[#65000b]">₹{total.toLocaleString("en-IN")}</span>
+                           <span className="text-2xl font-bold text-[#65000b]">₹{breakdown.finalPrice.toLocaleString("en-IN")}</span>
                          </div>
                          <div className="text-sm text-gray-600 mt-2 italic">
-                           🤖 AI Note: Current pricing is {getGoldStatus().label.toLowerCase()} based on today&apos;s gold rate.
+                           🤖 AI Note: Pricing based on {breakdown.carat}K gold rate (₹{breakdown.effectiveGoldRate.toLocaleString("en-IN")}/gm).
                          </div>
                          <div className="text-xs text-gray-500 mt-1">
                            This price is calculated based on current gold rate and market conditions.
@@ -769,8 +751,7 @@ Agar similar designs available ho to wo bhi share karein.`;
                    </h3>
                    <div className="grid grid-cols-1 gap-3">
                      {getSimilarProducts(selectedProduct).map((sim) => {
-                       const hasWeight = typeof sim.weight === "number" && sim.weight > 0;
-                       const simPrice = hasWeight ? Math.round((sim.weight! * goldRate) * (1 + (sim.making || 0) / 100)) : 0;
+                       const simPrice = calculatePrice(sim, goldRate);
                        return (
                           <div key={sim.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition" onClick={() => setSelectedProduct(sim)}>
                              <Image
@@ -784,7 +765,9 @@ Agar similar designs available ho to wo bhi share karein.`;
                              />
                            <div className="flex-1">
                              <p className="font-medium text-[#1a1a1a] text-sm">{sim.name}</p>
-                             <p className="text-[#65000b] font-bold">₹{simPrice.toLocaleString("en-IN")}</p>
+                             <p className="text-[#65000b] font-bold">
+                               {simPrice > 0 ? `₹${simPrice.toLocaleString("en-IN")}` : "Price on Enquiry"}
+                             </p>
                            </div>
                          </div>
                        );

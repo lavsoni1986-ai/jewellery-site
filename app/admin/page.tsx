@@ -18,6 +18,7 @@ import {
 import { optimizeCloudinaryUrl, enhanceJewelleryImage, enhanceJewelleryImageBasic } from "@/lib/utils";
 import { Lock, LogOut, Upload, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
+import { calculatePrice, calculatePriceBreakdown } from "@/lib/calcPrice";
 
 interface Product {
   id: string;
@@ -490,33 +491,26 @@ export default function AdminPage() {
   };
 
   const generateInvoice = (p: Product) => {
-    const weight = Number(p.weight || 0);
-    const making = Number(p.making || 0);
-    const carat = Number(p.carat || 22);
     const rate = Number(goldRate || 0);
-    const purity = carat / 24;
-    const goldPrice = weight * rate * purity;
-    const makingCharge = goldPrice * (making / 100);
-    const subtotal = goldPrice + makingCharge;
-    const gst = subtotal * 0.03;
-    const total = subtotal + gst;
+    const breakdown = calculatePriceBreakdown(p, rate);
 
     const invoice = {
       customerName: "Customer", // placeholder
       product: p.name,
-      weight: weight,
-      carat: carat,
-      goldRate: rate,
-      makingPercent: making,
-      goldPrice: Math.round(goldPrice),
-      makingCharge: Math.round(makingCharge),
-      gst: Math.round(gst),
-      total: Math.round(total),
+      weight: breakdown.weight,
+      carat: breakdown.carat,
+      goldRate: breakdown.effectiveGoldRate,
+      baseGoldRate: rate,
+      makingPercent: breakdown.makingPercent,
+      goldPrice: breakdown.goldValue,
+      makingCharge: breakdown.makingCharge,
+      gst: breakdown.gst,
+      total: breakdown.finalPrice,
       date: new Date().toISOString().split('T')[0],
     };
 
     console.log("Invoice:", invoice);
-    alert(`Invoice generated! Check console for details.\nTotal: ₹${total.toLocaleString("en-IN")}`);
+    alert(`Invoice generated! Check console for details.\nTotal: ₹${breakdown.finalPrice.toLocaleString("en-IN")}`);
   };
 
   const generatePDF = (p: Product) => {
@@ -525,20 +519,9 @@ export default function AdminPage() {
       return;
     }
 
-    const doc = new jsPDF();
-
-    const weight = Number(p.weight);
-    const making = Number(p.making || 0);
-    const carat = Number(p.carat || 22);
     const rate = Number(goldRate || 0);
-
-    const purity = carat / 24;
-    const goldPrice = weight * rate * purity;
-    const makingCharge = goldPrice * (making / 100);
-    const subtotal = goldPrice + makingCharge;
-    const gst = subtotal * 0.03;
-    const total = subtotal + gst;
-
+    const breakdown = calculatePriceBreakdown(p, rate);
+    const doc = new jsPDF();
     const invoiceNo = "INV-" + Date.now();
 
     // Branding
@@ -560,15 +543,16 @@ export default function AdminPage() {
     if (customerPhone) doc.text(`Phone: ${customerPhone}`, 20, 76);
 
     doc.text(`Product: ${p.name}`, 20, 86);
-    doc.text(`Weight: ${p.weight}g`, 20, 92);
-    doc.text(`Carat: ${p.carat || 22}K`, 20, 98);
+    doc.text(`Weight: ${breakdown.weight}g`, 20, 92);
+    doc.text(`Carat: ${breakdown.carat}K`, 20, 98);
+    doc.text(`Gold Rate (${breakdown.carat}K): ₹${breakdown.effectiveGoldRate.toLocaleString("en-IN")}/g`, 20, 105);
 
-    doc.text(`Gold Price: ₹${Math.round(goldPrice).toLocaleString("en-IN")}`, 20, 115);
-    doc.text(`Making: ₹${Math.round(makingCharge).toLocaleString("en-IN")}`, 20, 125);
-    doc.text(`GST (3%): ₹${Math.round(gst).toLocaleString("en-IN")}`, 20, 135);
+    doc.text(`Gold Price: ₹${breakdown.goldValue.toLocaleString("en-IN")}`, 20, 115);
+    doc.text(`Making (${breakdown.makingPercent}%): ₹${breakdown.makingCharge.toLocaleString("en-IN")}`, 20, 125);
+    doc.text(`GST (3%): ₹${breakdown.gst.toLocaleString("en-IN")}`, 20, 135);
 
     doc.setFontSize(14);
-    doc.text(`Total: ₹${Math.round(total).toLocaleString("en-IN")}`, 20, 155);
+    doc.text(`Total: ₹${breakdown.finalPrice.toLocaleString("en-IN")}`, 20, 155);
 
     doc.setFontSize(10);
     doc.text("Thank you for shopping with us!", 20, 175);
@@ -1096,18 +1080,7 @@ export default function AdminPage() {
 
                      {p.weight && Number(p.weight) > 0 ? (
                        <>
-                         <p className="text-gold font-mono">{goldRate ? `₹${(() => {
-                           const weight = Number(p.weight || 0);
-                           const making = Number(p.making || 0);
-                           const carat = Number(p.carat || 22);
-                           const rate = Number(goldRate || 0);
-                           const purity = carat / 24;
-                           const goldPrice = weight * rate * purity;
-                           const makingCharge = goldPrice * (making / 100);
-                           const subtotal = goldPrice + makingCharge;
-                           const gst = subtotal * 0.03;
-                           return Math.round(subtotal + gst);
-                         })().toLocaleString("en-IN")}` : "Set gold rate first"}</p>
+                         <p className="text-gold font-mono">{goldRate ? `₹${calculatePrice(p, Number(goldRate)).toLocaleString("en-IN")}` : "Set gold rate first"}</p>
                          <p className="text-sm text-gray-400">{p.weight}g • {p.carat || 22}K Gold</p>
                        </>
                      ) : (

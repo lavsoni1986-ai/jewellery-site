@@ -7,7 +7,7 @@ export default function GoldRateStrip() {
 
   return (
     <div className="bg-black text-yellow-400 text-center text-sm py-1 flex justify-center gap-6">
-      <span>Gold: ₹{goldRate}/gm</span>
+      <span>Gold (24K): ₹{goldRate.toLocaleString("en-IN")}/gm</span>
       {silverRate && silverRate > 0 && (
         <>
           <span className="text-gray-300">|</span>
