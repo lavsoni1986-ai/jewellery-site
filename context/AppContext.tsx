@@ -80,17 +80,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const categoriesUnsub = onSnapshot(collection(db, "categories"), (snapshot) => {
       const cats = snapshot.docs.map(doc => {
         const data = doc.data();
-        const rawName = (data.name || "").trim();
+        let rawName = (data.name || "").trim();
+        if (rawName.startsWith("-") || rawName.startsWith("/")) {
+          rawName = rawName.substring(1).trim();
+        }
+        // Capitalize words cleanly
+        const formattedName = rawName
+          ? rawName
+              .split(/\s+/)
+              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+              .join(" ")
+          : doc.id;
+
         const rawSlug = (data.slug || "").trim().replace(/^-+|-+$/g, "");
+        const cleanSlug = rawSlug || formattedName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
         return {
           id: doc.id,
-          name: rawName || doc.id,
-          slug: rawSlug || rawName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          name: formattedName,
+          slug: cleanSlug,
           image: data.image || undefined,
         };
       }).filter(c => c.name.length > 0);
 
-      // Deduplicate by slug
+      // Deduplicate by clean slug
       const seen = new Set<string>();
       const uniqueCats: Category[] = [];
       for (const c of cats) {

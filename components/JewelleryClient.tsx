@@ -171,8 +171,17 @@ export default function JewelleryClient() {
       else if (weightFilter === "medium") weightMatch = hasWeight && p.weight! >= 5 && p.weight! <= 15;
       else if (weightFilter === "heavy") weightMatch = hasWeight && p.weight! > 15;
 
-      // E. डिजाइन (Design) फ़िल्टर (नया)
-      const designMatch = designFilter === "all" || (p.category && p.category.toLowerCase() === designFilter.toLowerCase());
+      // E. डिजाइन (Design) फ़िल्टर
+      const dbDesign = getSovereignKey(p.category || "");
+      const designKey = getSovereignKey(designFilter);
+      const normDesignFilter = designFilter.toLowerCase().trim();
+      const cleanDesignFilter = normDesignFilter.replace(/[^a-z0-9]/g, "");
+
+      const designMatch =
+        designFilter === "all" ||
+        normProductCat === normDesignFilter ||
+        dbDesign === designKey ||
+        (cleanProductCat.length > 0 && cleanProductCat === cleanDesignFilter);
 
       return categoryMatch && purityMatch && budgetMatch && weightMatch && designMatch;
     }).sort((a, b) => (a.name || "").localeCompare(b.name || "")).filter(p => {
@@ -379,10 +388,11 @@ Agar similar designs available ho to wo bhi share karein.`;
                 className="category-btn !py-2 !text-xs hover:bg-[#D4AF37]/10 transition-colors"
               >
                 <option value="all">All Designs</option>
-                <option value="ring">Ring</option>
-                <option value="necklace">Necklace</option>
-                <option value="earring">Earring</option>
-                <option value="bracelet">Bracelet</option>
+                {firestoreCategories.map((cat) => (
+                  <option key={cat.id || cat.slug} value={cat.slug}>
+                    {cat.name}
+                  </option>
+                ))}
               </select>
             </div>
 
